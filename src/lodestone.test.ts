@@ -419,3 +419,176 @@ describe("a caller's own key", () => {
     expect(stats.scorecard().scores.find((s) => s.metric === 'success_rate')?.value).toBe(0); // a busy model still counts
   });
 });
+
+describe('circuit breaker', () => {
+  const MIN = 60_000;
+  const brokenFree = (req: ProviderRequest) => (req.model.startsWith('free') ? fail(503) : 'answer');
+
+  it('skips a model that keeps failing, so the next request does not wait on it', async () => {
+    const { createHealth } = await import('./health.js');
+    const health = createHealth();
+    const or = mock((req: ProviderRequest) => (req.model === 'free-a:free' ? fail(503) : 'ok'));
+    const events: AttemptEvent[] = [];
+    const ai = createLodestone({ openrouter: { apiKey: 'k', provider: or, models }, health, onAttempt: (e) => events.push(e) });
+    for (let i = 0; i < 3; i++) await ai.complete({ prompt: 'x' });                // free-a fails three times, free-b answers
+    or.calls.length = 0; events.length = 0;
+    expect((await ai.complete({ prompt: 'x' })).model).toBe('free-b:free');
+    expect(or.calls.map((c) => c.model)).toEqual(['free-b:free']);                   // free-a was not even tried
+    expect(events.find((e) => e.model === 'free-a:free')).toMatchObject({ outcome: 'skipped', ms: 0 });
+  });
+  it('goes straight to a paid model when every free model is down', async () => {
+    const { createHealth } = await import('./health.js');
+    const health = createHealth();
+    const or = mock((req: ProviderRequest) => (req.model.startsWith('free') ? fail(503) : req.model === 'openrouter/free' ? fail(503) : 'paid ok'));
+    const ai = createLodestone({ openrouter: { apiKey: 'k', provider: or, models, paidModels: ['paid-1'], allowPaid: true }, health, timing: quick });
+    for (let i = 0; i < 3; i++) await ai.complete({ prompt: 'x' });
+    or.calls.length = 0;
+    expect((await ai.complete({ prompt: 'x' })).model).toBe('paid-1');
+    expect(or.calls.map((c) => c.model)).toEqual(['paid-1']);
+  });
+  it('still tries the free models when nothing else could answer, even if they look down', async () => {
+    const { createHealth } = await import('./health.js');
+    const health = createHealth();
+    let healed = false;
+    const or = mock(() => (healed ? 'back' : fail(503)));
+    const ai = createLodestone({ openrouter: { apiKey: 'k', provider: or, models }, health });
+    for (let i = 0; i < 3; i++) await ai.complete({ prompt: 'x' }).catch(() => {});
+    healed = true;
+    expect((await ai.complete({ prompt: 'x' })).text).toBe('back');
+  });
+  it('probes a skipped model again after a while, and uses it once it answers', async () => {
+    const { createHealth } = await import('./health.js');
+    const clock = { t: Date.parse('2026-10-28T12:00:00Z') };
+    const health = createHealth({ now: () => clock.t });
+    let aUp = false;
+    const or = mock((req: ProviderRequest) => (req.model === 'free-a:free' && !aUp ? fail(503) : 'ok'));
+    const ai = createLodestone({ openrouter: { apiKey: 'k', provider: or, models }, health });
+    for (let i = 0; i < 3; i++) await ai.complete({ prompt: 'x' });
+    expect((await ai.complete({ prompt: 'x' })).model).toBe('free-b:free');
+    clock.t += 2 * MIN; aUp = true;
+    expect((await ai.complete({ prompt: 'x' })).model).toBe('free-a:free');
+  });
+  it("does not blame a model for a rejected key or missing credit", async () => {
+    const { createHealth } = await import('./health.js');
+    const health = createHealth();
+    const ai = createLodestone({ openrouter: { apiKey: 'k', provider: mock(() => fail(401)), models }, health });
+    for (let i = 0; i < 4; i++) await ai.complete({ prompt: 'x' }).catch(() => {});
+    expect(await health.snapshot()).toEqual([]);
+  });
+  it('does not count skipped attempts in live stats', async () => {
+    const { createHealth } = await import('./health.js');
+    const { createStats } = await import('./stats.js');
+    const health = createHealth(); const stats = createStats();
+    const or = mock((req: ProviderRequest) => (req.model === 'free-a:free' ? fail(503) : 'ok'));
+    const ai = createLodestone({ openrouter: { apiKey: 'k', provider: or, models }, health, stats });
+    for (let i = 0; i < 5; i++) await ai.complete({ prompt: 'x' });
+    expect(stats.scorecard().scores.find((s) => s.model === 'free-a:free' && s.metric === 'success_rate')?.n).toBe(3);
+  });
+});
+
+describe('spend control', () => {
+  const paidOnly = (req: ProviderRequest) => (req.model.startsWith('paid') ? { text: 'ok', usage: { inputTokens: 1000, outputTokens: 200, costUsd: 0.0004 } } : fail(503));
+  const setup = (spend: Parameters<typeof createLodestone>[0] extends infer C ? C extends { spend?: infer S } ? S : never : never, extra = {}) =>
+    createLodestone({ openrouter: { apiKey: 'platform', provider: mock(paidOnly), models, paidModels: ['paid-1'], allowPaid: true }, spend, timing: quick, ...extra });
+
+  it('asks before spending the platform\'s money, and records what the call cost', async () => {
+    const seen: unknown[] = [];
+    const ai = setup({ allow: () => true, record: (i) => { seen.push(i); } });
+    expect((await ai.complete({ prompt: 'x' })).model).toBe('paid-1');
+    expect(seen).toEqual([{ provider: 'mock', model: 'paid-1', phase: 'paid', usage: { inputTokens: 1000, outputTokens: 200, costUsd: 0.0004 }, costUsd: 0.0004 }]);
+  });
+  it('does not use a paid model once the limit is reached, and says it is the budget', async () => {
+    const or = mock(paidOnly);
+    const ai = createLodestone({ openrouter: { apiKey: 'platform', provider: or, models, paidModels: ['paid-1'], allowPaid: true }, spend: { allow: () => false, record: () => {} }, timing: quick });
+    await expect(ai.complete({ prompt: 'x' })).rejects.toMatchObject({ kind: 'budget' });
+    expect(or.calls.some((c) => c.model === 'paid-1')).toBe(false);
+  });
+  it('never counts or limits the free models', async () => {
+    let asked = 0; let recorded = 0;
+    const ai = createLodestone({ openrouter: { apiKey: 'platform', provider: mock('free answer'), models, paidModels: ['paid-1'], allowPaid: true }, spend: { allow: () => { asked++; return false; }, record: () => { recorded++; } } });
+    expect((await ai.complete({ prompt: 'x' })).text).toBe('free answer');
+    expect([asked, recorded]).toEqual([0, 0]);
+  });
+  it("never counts or limits a caller's own key, which is their money", async () => {
+    let asked = 0; let recorded = 0;
+    const ai = createLodestone({ openrouter: { apiKey: 'platform', provider: mock(paidOnly), models, paidModels: ['paid-1'] }, spend: { allow: () => { asked++; return false; }, record: () => { recorded++; } }, timing: quick });
+    expect((await ai.complete({ prompt: 'x', apiKey: 'theirs' })).model).toBe('paid-1');
+    expect([asked, recorded]).toEqual([0, 0]);
+  });
+  it("estimates the cost from the catalogue's price when the provider does not report one", async () => {
+    const seen: number[] = [];
+    const or = mock((req: ProviderRequest) => (req.model.startsWith('paid') ? { text: 'ok', usage: { inputTokens: 1000, outputTokens: 500 } } : fail(503)));
+    const priced = (async () => new Response(JSON.stringify({ data: [{ id: 'paid-1', context_length: 100000, pricing: { prompt: '0.000001', completion: '0.000004' } }] }))) as typeof fetch;
+    const ai = createLodestone({ openrouter: { apiKey: 'platform', provider: or, models, paidModels: ['paid-1'], allowPaid: true }, spend: { allow: () => true, record: (i) => { seen.push(i.costUsd as number); } }, fetch: priced, timing: quick });
+    await ai.refreshCatalog();
+    await ai.complete({ prompt: 'x' });
+    expect(seen[0]).toBeCloseTo(1000 * 0.000001 + 500 * 0.000004, 10); // $0.003
+  });
+  it('counts and limits a fallback provider on the platform\'s key', async () => {
+    const seen: string[] = [];
+    const fb = mock('from fallback');
+    const ai = createLodestone({ openrouter: { apiKey: 'p', provider: mock(() => fail(503)), models }, fallbacks: [{ provider: fb, apiKey: 'k', models: ['claude-x'] }], spend: { allow: () => true, record: (i) => { seen.push(i.phase); } }, timing: quick });
+    await ai.complete({ prompt: 'x' });
+    expect(seen).toEqual(['fallback']);
+    const blocked = createLodestone({ openrouter: { apiKey: 'p', provider: mock(() => fail(503)), models }, fallbacks: [{ provider: mock('x'), apiKey: 'k', models: ['claude-x'] }], spend: { allow: () => false, record: () => {} }, timing: quick });
+    await expect(blocked.complete({ prompt: 'x' })).rejects.toMatchObject({ kind: 'budget' });
+  });
+  it('a recording that fails does not fail the answer', async () => {
+    const ai = setup({ allow: () => true, record: () => { throw new Error('ledger down'); } });
+    expect((await ai.complete({ prompt: 'x' })).model).toBe('paid-1');
+  });
+});
+
+describe('paidFirst', () => {
+  const answerBy = (prefix: string) => (req: ProviderRequest) => (req.model.startsWith(prefix) ? `from ${req.model}` : fail(503));
+  const cfg = (or: ReturnType<typeof mock>, extra: object = {}) => ({ openrouter: { apiKey: 'platform', provider: or, models, paidModels: ['paid-1', 'paid-2'], allowPaid: true, paidFirst: true }, timing: quick, ...extra });
+
+  it("tries the paid model first on the platform's key and never touches the free ones when it answers", async () => {
+    const or = mock(answerBy('paid'));
+    const r = await createLodestone(cfg(or)).complete({ prompt: 'x' });
+    expect(r.model).toBe('paid-1');
+    expect(or.calls.map((c) => c.model)).toEqual(['paid-1']);
+  });
+  it('falls back to the free models if the paid ones fail', async () => {
+    const or = mock(answerBy('free-b'));
+    const r = await createLodestone(cfg(or)).complete({ prompt: 'x' });
+    expect(r.model).toBe('free-b:free');
+    expect(or.calls.map((c) => c.model)).toEqual(['paid-1', 'paid-2', 'free-a:free', 'free-b:free']);
+  });
+  it('keeps answering from the free models when the spend limit is reached, instead of failing', async () => {
+    const or = mock(answerBy('free-a'));
+    const ai = createLodestone(cfg(or, { spend: { allow: () => false, record: () => {} } }));
+    expect((await ai.complete({ prompt: 'x' })).model).toBe('free-a:free');
+    expect(or.calls.some((c) => c.model.startsWith('paid'))).toBe(false);
+  });
+  it("says it is the budget only when the limit stopped the paid models and the free ones failed too", async () => {
+    const ai = createLodestone(cfg(mock(() => fail(503)), { spend: { allow: () => false, record: () => {} } }));
+    await expect(ai.complete({ prompt: 'x' })).rejects.toMatchObject({ kind: 'budget' });
+  });
+  it("is not applied to a caller's own key: their free models come first, because the paid ones are their money", async () => {
+    const or = mock(answerBy('free-a'));
+    const r = await createLodestone(cfg(or)).complete({ prompt: 'x', apiKey: 'theirs' });
+    expect(r.model).toBe('free-a:free');
+    expect(or.calls.map((c) => c.model)).toEqual(['free-a:free']);
+  });
+  it('does nothing when paid models are not allowed, so free models are never skipped by mistake', async () => {
+    const or = mock(answerBy('free-a'));
+    const r = await createLodestone({ openrouter: { apiKey: 'platform', provider: or, models, paidModels: ['paid-1'], paidFirst: true } }).complete({ prompt: 'x' });
+    expect(r.model).toBe('free-a:free');
+  });
+  it('limits how long a paid model going first may take, so the next one still gets its turn', async () => {
+    const or = mock((req: ProviderRequest) => (req.model === 'paid-1'
+      ? new Promise((_, reject) => req.signal.addEventListener('abort', () => reject(Object.assign(new Error('t'), { name: 'TimeoutError' }))))
+      : `from ${req.model}`));
+    const started = Date.now();
+    const r = await createLodestone({ ...cfg(or), budgetMs: 3000, timing: { minSliceMs: 5, paidSliceMs: 80, freeSliceMs: 100 } }).complete({ prompt: 'x' });
+    expect(r.model).toBe('paid-2');
+    expect(Date.now() - started).toBeLessThan(1000);
+  });
+  it('counts what a paid call cost, and not the free fallback', async () => {
+    const seen: string[] = [];
+    const or = mock((req: ProviderRequest) => (req.model.startsWith('paid') ? fail(503) : 'free ok'));
+    await createLodestone(cfg(or, { spend: { allow: () => true, record: (i: { phase: string }) => { seen.push(i.phase); } } })).complete({ prompt: 'x' });
+    expect(seen).toEqual([]);
+  });
+});

@@ -36,6 +36,7 @@ export function createStats(opts: StatsOptions = {}): Stats {
 
   return {
     record(e) {
+      if (e.outcome === 'skipped') return; // not tried, so nothing to count
       const k = key(e.provider, e.model);
       const list = (state[k] ??= []);
       list.push({ ok: e.outcome === 'ok', ms: e.ms, at: now() });
