@@ -53,9 +53,10 @@ const vet = rows.map(([id, from, m]) => {
 
 // 3. How far each provider preset has been checked. Edit this when that changes; it is a claim, so it is written by hand.
 const providers = [
-  ['requesty()', 'Requesty', 'ok', 'model list read live (807 chat models, with price, lab and data policy)', 'chat call not made: no key'],
+  ['groq()', 'Groq', 'ok', 'a chat call answered live on 28 Oct 2026 (openai/gpt-oss-20b, about 1 s); the model list was read, 11 entries of which 4 are chat models', 'the list also holds speech and safety models, which Lodestone now leaves out; the model Lodestone first listed, llama-3.3-70b-versatile, had been withdrawn (a 404, reported as withdrawn)'],
+  ['requesty()', 'Requesty', 'warn', 'key accepted and the model list read live (807 chat models, with price, lab and data policy)', 'the chat call was refused with 402, payment required, because the account had no credit, so no answer has been seen from it'],
   ['llmapi()', 'LLM API', 'ok', 'model list read live (152 chat of 393 models; image, video, speech and embedding ignored)', 'chat call not made: no key'],
-  ['groq(), cerebras()', 'Groq, Cerebras', 'warn', 'endpoint answers (needs a key); free-tier terms not checked', 'untested with a key'],
+  ['cerebras()', 'Cerebras', 'warn', 'endpoint answers (needs a key); free-tier terms not checked', 'untested with a key'],
   ['openai(), mistral(), together()', 'the providers themselves', 'warn', 'endpoint answers (needs a key)', 'untested with a key'],
   ['ollama()', 'a local server', 'warn', 'the standard local endpoint', 'untested here'],
   ['(built in) openrouter', 'OpenRouter', 'ok', 'used in production for the default path', 'catalogue, calls, cost and expiry dates all seen live'],
