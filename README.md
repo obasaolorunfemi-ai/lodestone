@@ -42,6 +42,24 @@ try {
 
 `fast` (extraction, classification), `strong` (writing, judgement) and `vision` (reading images). A call picks one through its `task` profile or `tier`, and uses `vision` by itself when the messages contain an image.
 
+### Choosing the provider and model yourself (`route`)
+
+Tiers are for tools that don't care which model answers. A tool that picks its own provider and model per request (a paid model, a customer's own key) passes a `route` instead: exactly these steps, in order, until one answers.
+
+```ts
+await ai.complete({
+  system, messages, maxTokens: 900,
+  route: [
+    { provider: 'anthropic', model: 'claude-sonnet-4-5', apiKey: customerKey },
+    { provider: 'openrouter', model: 'anthropic/claude-sonnet-4-5', apiKey: backupKey },
+  ],
+});
+```
+
+A step with no key is skipped. A route skips the model lists and the catalogue, leaves temperature to the provider unless you set one, and still gets the time budget, typed failures and usage. `detail.providerMessage` on the error carries the provider's own message. Replace or add provider adapters with the `providers` option, for example `providers: { openrouter: openrouter({ lowReasoning: false }) }`.
+
+Keep a customer's own key out of any fallback step: build the route from their key only.
+
 ### Phases
 
 For each call, in order, until one answers:

@@ -27,7 +27,7 @@ export function google(opts: GoogleOptions = {}): Provider {
         body: JSON.stringify({
           ...(req.system ? { system_instruction: { parts: [{ text: req.system }] } } : {}),
           contents: req.messages.map(wire),
-          generationConfig: { maxOutputTokens: req.maxTokens, temperature: req.temperature },
+          generationConfig: { maxOutputTokens: req.maxTokens, ...(req.temperature === undefined ? {} : { temperature: req.temperature }) },
         }),
         signal: req.signal,
       });

@@ -26,7 +26,7 @@ export function anthropic(opts: AnthropicOptions = {}): Provider {
         body: JSON.stringify({
           model: req.model,
           max_tokens: req.maxTokens,
-          temperature: req.temperature,
+          ...(req.temperature === undefined ? {} : { temperature: req.temperature }),
           ...(req.system ? { system: req.system } : {}),
           messages: req.messages.map(wire),
         }),

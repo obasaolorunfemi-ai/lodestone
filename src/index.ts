@@ -1,6 +1,6 @@
 export { createLodestone } from './lodestone.js';
-export type { Lodestone, LodestoneConfig, CompleteOptions, CompleteResult, Profile, FallbackConfig, AttemptEvent } from './lodestone.js';
-export { LodestoneError, ProviderError } from './errors.js';
+export type { Lodestone, LodestoneConfig, CompleteOptions, CompleteResult, Profile, FallbackConfig, AttemptEvent, RouteStep } from './lodestone.js';
+export { LodestoneError, ProviderError, messageFrom } from './errors.js';
 export type { FailureKind } from './errors.js';
 export { explain } from './explain.js';
 export type { ExplainOptions } from './explain.js';

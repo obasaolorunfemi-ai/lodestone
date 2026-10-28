@@ -8,6 +8,15 @@ export class ProviderError extends Error {
   }
 }
 
+/** The human-readable message inside a provider's error body ({"error":{"message":"..."}} or {"message":"..."}), if it has one. */
+export function messageFrom(body: string): string | undefined {
+  try {
+    const j = JSON.parse(body) as { error?: { message?: unknown } | string; message?: unknown };
+    const m = typeof j.error === 'string' ? j.error : j.error?.message ?? j.message;
+    return typeof m === 'string' && m.trim() ? m.trim().slice(0, 300) : undefined;
+  } catch { return undefined; }
+}
+
 export type FailureKind =
   /** The key was rejected. Another model on the same key will not differ. */
   | 'auth'
@@ -32,7 +41,7 @@ export type FailureKind =
 export class LodestoneError extends Error {
   constructor(
     public kind: FailureKind,
-    public detail: { status?: number; rateLimit?: RateLimitReading; ownKey?: boolean; needsCredit?: boolean } = {}
+    public detail: { status?: number; rateLimit?: RateLimitReading; ownKey?: boolean; needsCredit?: boolean; providerMessage?: string } = {}
   ) {
     super(`no model could answer: ${kind}`);
     this.name = 'LodestoneError';

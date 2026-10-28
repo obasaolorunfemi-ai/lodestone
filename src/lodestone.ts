@@ -1,8 +1,10 @@
 import { createCatalog, pickModels, ROUTER, type CatalogModel } from './catalog.js';
-import { LodestoneError, ProviderError, type FailureKind } from './errors.js';
+import { LodestoneError, messageFrom, ProviderError, type FailureKind } from './errors.js';
 import { tryParseJson } from './json.js';
 import { DEFAULT_MODELS, DEFAULT_PAID_MODELS } from './models.js';
 import { readRateLimit, type RateLimitReading } from './rateLimit.js';
+import { anthropic } from './providers/anthropic.js';
+import { google } from './providers/google.js';
 import { openrouter } from './providers/openrouter.js';
 import { memoryStore } from './store.js';
 import type { ContentPart, KeyValueStore, Message, Provider, ProviderReply, Tier, Usage } from './types.js';
@@ -19,7 +21,7 @@ export interface FallbackConfig {
 export interface AttemptEvent {
   provider: string;
   model: string;
-  phase: 'free' | 'paid' | 'fallback';
+  phase: 'free' | 'paid' | 'fallback' | 'route';
   outcome: 'ok' | 'timeout' | 'failed';
   status?: number;
   ms: number;
@@ -36,6 +38,8 @@ export interface LodestoneConfig {
     /** Replace the OpenRouter adapter (tests, proxies). */
     provider?: Provider;
   };
+  /** Provider adapters by name, for `route` steps. Defaults: openrouter, anthropic and google. Replace one (for example `openrouter({ lowReasoning: false })`) or add your own. */
+  providers?: Record<string, Provider>;
   /** Other providers, each with its own key, tried after OpenRouter has failed. */
   fallbacks?: FallbackConfig[];
   /** Named tasks, so calls say what they are doing and not which model to use. */
@@ -52,7 +56,19 @@ export interface LodestoneConfig {
   onAttempt?: (e: AttemptEvent) => void;
 }
 
+/** One attempt in an explicit route: this provider, this model, this key. */
+export interface RouteStep {
+  /** A name in `providers` (openrouter, anthropic, google by default). */
+  provider: string;
+  model: string;
+  apiKey: string;
+  /** Longest this step may take. Default: most of what is left, keeping some for the steps after it. */
+  timeoutMs?: number;
+}
+
 export interface CompleteOptions {
+  /** Skip tiers and phases: try exactly these steps, in order, until one answers. For callers that choose their own provider and model per request. Temperature is left to the provider unless set. */
+  route?: RouteStep[];
   /** A key in `profiles`. */
   task?: string;
   /** Overrides the profile's tier. Default: 'vision' if the messages contain an image, else 'fast'. */
@@ -81,7 +97,7 @@ export interface CompleteResult {
 
 type Outcome =
   | { kind: 'ok'; reply: ProviderReply }
-  | { kind: 'fail'; status: number; body: string; unusable?: boolean }
+  | { kind: 'fail'; status: number; body: string; unusable?: boolean; message?: string }
   | { kind: 'timeout' };
 
 const hasImage = (messages: Message[]) => messages.some((m) => Array.isArray(m.content) && m.content.some((p: ContentPart) => p.type === 'image'));
@@ -102,6 +118,7 @@ export function createLodestone(config: LodestoneConfig = {}) {
   const prefs: Record<Tier, string[]> = { ...DEFAULT_MODELS, ...config.openrouter?.models };
   const paidModels = config.openrouter?.paidModels ?? DEFAULT_PAID_MODELS;
   const fallbacks = config.fallbacks ?? [];
+  const registry: Record<string, Provider> = { openrouter: router, anthropic: anthropic({ fetch: fetchImpl }), google: google({ fetch: fetchImpl }), ...config.providers };
 
   /** The ids to send for a tier: preferences that still exist, plus current replacements. Never throws, never waits on the network. */
   async function resolveModels(tier: Tier): Promise<string[]> {
@@ -116,7 +133,7 @@ export function createLodestone(config: LodestoneConfig = {}) {
     const images = hasImage(messages);
     const tier: Tier = opts.tier ?? profile?.tier ?? (images ? 'vision' : 'fast');
     const maxTokens = opts.maxTokens ?? profile?.maxTokens ?? 3500;
-    const temperature = opts.temperature ?? profile?.temperature ?? 0.2;
+    const temperature = opts.temperature ?? profile?.temperature ?? (opts.route ? undefined : 0.2);
 
     const cacheSlot = opts.cacheKey ? `lodestone:cache:${opts.cacheKey}` : null;
     if (cacheSlot) {
@@ -154,7 +171,7 @@ export function createLodestone(config: LodestoneConfig = {}) {
       } catch (e) {
         const name = (e as Error).name;
         if (name === 'TimeoutError' || name === 'AbortError') out = { kind: 'timeout' };
-        else if (e instanceof ProviderError) out = { kind: 'fail', status: e.status, body: e.body };
+        else if (e instanceof ProviderError) out = { kind: 'fail', status: e.status, body: e.body, message: messageFrom(e.body) };
         else out = { kind: 'fail', status: 599, body: (e as Error).message };
       }
       config.onAttempt?.({ provider: provider.name, model, phase, outcome: out.kind === 'ok' ? 'ok' : out.kind === 'timeout' ? 'timeout' : 'failed', status: out.kind === 'fail' ? out.status : undefined, ms: now() - at });
@@ -167,6 +184,28 @@ export function createLodestone(config: LodestoneConfig = {}) {
       if (cacheSlot) await store.set(cacheSlot, { ...result, at: now() }).catch(() => {});
       return result;
     };
+
+    // An explicit route: exactly the steps the caller named, in order.
+    if (opts.route?.length) {
+      const steps = opts.route.filter((st) => st.apiKey);
+      let firstFail: Extract<Outcome, { kind: 'fail' }> | null = null;
+      for (let i = 0; i < steps.length; i++) {
+        const st = steps[i];
+        const provider = registry[st.provider];
+        if (!provider) throw new Error(`Unknown provider "${st.provider}" in route`);
+        if (images && !provider.vision) continue;
+        if (left() <= 0) break;
+        const isLast = i === steps.length - 1;
+        const ms = Math.min(left(), st.timeoutMs ?? (isLast ? left() : Math.max(t.minSlice, Math.floor(left() * 0.6))));
+        const out = await attempt(provider, st.apiKey, st.model, 'route', ms);
+        if (out.kind === 'ok') return finish(provider, st.model, out.reply);
+        if (out.kind === 'fail' && !firstFail) firstFail = out;
+      }
+      if (!attempted) throw new LodestoneError('not_configured');
+      const lastRoute = last as Outcome | null;
+      if (!firstFail && lastRoute?.kind === 'timeout') throw new LodestoneError('slow');
+      throw classify(firstFail ?? (lastRoute?.kind === 'fail' ? lastRoute : null), Boolean(opts.apiKey), false, false);
+    }
 
     // Phase 1: OpenRouter's free models. A withdrawn one has already been replaced by resolveModels.
     if (orKey) {
@@ -210,7 +249,11 @@ export function createLodestone(config: LodestoneConfig = {}) {
     if (!attempted) throw new LodestoneError('not_configured');
     const lastFail = last as Outcome | null;
     if (!rateLimited && lastFail?.kind === 'timeout') throw new LodestoneError('slow');
-    const failure = rateLimited ?? (lastFail?.kind === 'fail' ? lastFail : null);
+    throw classify(rateLimited ?? (lastFail?.kind === 'fail' ? lastFail : null), ownKey, authFailed, needsCredit);
+  }
+
+  /** Turns the failure that explains why nothing answered into a LodestoneError. */
+  function classify(failure: Extract<Outcome, { kind: 'fail' }> | null, ownKey: boolean, authFailed: boolean, needsCredit: boolean): LodestoneError {
     const status = failure?.status ?? 0;
     const kind: FailureKind =
       failure?.unusable ? 'bad_output'
@@ -220,7 +263,7 @@ export function createLodestone(config: LodestoneConfig = {}) {
       : status >= 500 ? 'unavailable'
       : 'other';
     const rateLimit: RateLimitReading | undefined = status === 429 && failure ? readRateLimit(failure.body) : undefined;
-    throw new LodestoneError(kind, { status, rateLimit, ownKey, needsCredit });
+    return new LodestoneError(kind, { status, rateLimit, ownKey, needsCredit, providerMessage: failure?.message });
   }
 
   /** Like complete(), but the answer must be JSON (and pass `validate`, if given). A model whose answer isn't is skipped for the next. */
