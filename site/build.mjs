@@ -2,7 +2,7 @@
 // produced here from the real library (dist/) and the real source tree, so the page cannot drift from the code.
 //   npm run build && node site/build.mjs        (or: npm run site)
 import { execSync } from 'node:child_process';
-import { copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { copyFileSync, cpSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -44,7 +44,7 @@ const rows = [
   ['gemini-3.8-flash', 'LLM API, family "gemini-flash", publishes nothing on data use', { id: 'gemini-3.8-flash', publisher: 'gemini-flash' }],
 ];
 const REASON = { 'untrusted-publisher': 'refused: lab not on the trusted list', 'unknown-data-policy': 'refused: provider does not say what happens to prompts', 'trains-on-data': 'refused: trained on', retention: 'refused: keeps prompts too long', expiring: 'refused: retiring within a week', blocked: 'refused: blocked' };
-const cell = (v) => (v.ok ? '<span class="pill ok">used</span>' : `<span class="pill no">${esc(REASON[v.reason] ?? v.reason)}</span>`);
+const cell = (v) => (v.ok ? '<span class="chip ok">used</span>' : `<span class="chip no">${esc(REASON[v.reason] ?? v.reason)}</span>`);
 const vet = rows.map(([id, from, m]) => {
   const a = lib.vet(m, undefined, { discovered: true, now: NOW });
   const b = lib.vet(m, { requireNoTraining: true, maxRetentionDays: 30 }, { discovered: true, now: NOW });
@@ -60,7 +60,7 @@ const providers = [
   ['ollama()', 'a local server', 'warn', 'the standard local endpoint', 'untested here'],
   ['(built in) openrouter', 'OpenRouter', 'ok', 'used in production for the default path', 'catalogue, calls, cost and expiry dates all seen live'],
   ['anthropic(), google()', 'direct', 'warn', 'request shape tested against the documented format', 'not called live'],
-].map(([preset, svc, tone, what, note]) => `<tr><td><code>${esc(preset)}</code></td><td>${esc(svc)}</td><td><span class="pill ${tone}">${tone === 'ok' ? 'checked' : 'partly'}</span> ${esc(what)}<br><small>${esc(note)}</small></td></tr>`).join('');
+].map(([preset, svc, tone, what, note]) => `<tr><td><code>${esc(preset)}</code></td><td>${esc(svc)}</td><td><span class="chip ${tone}">${tone === 'ok' ? 'checked' : 'partly'}</span> ${esc(what)}<br><small>${esc(note)}</small></td></tr>`).join('');
 
 // 4. The code map, from the real tree.
 const DESC = {
@@ -86,11 +86,11 @@ const hasTest = (f) => existsSync(join(src, f.replace(/\.ts$/, '.test.ts')));
 const BASE = 'https://github.com/obasaolorunfemi-ai/lodestone/blob/main/';
 const files = readdirSync(src).filter((f) => f.endsWith('.ts') && !f.endsWith('.test.ts')).sort();
 const providerFiles = readdirSync(join(src, 'providers')).filter((f) => f.endsWith('.ts') && !f.endsWith('.test.ts')).map((f) => f.replace('.ts', ''));
-const filemap = files.map((f) => `<a class="file" href="${BASE}src/${f}"><code>${f}</code>${hasTest(f) ? '<span class="t">+tests</span>' : ''}<p>${esc(DESC[f] ?? '')}</p></a>`).join('')
-  + `<a class="file" href="${BASE}src/providers"><code>providers/</code><p>Adapters: ${providerFiles.join(', ')}</p></a>`
-  + `<a class="file" href="${BASE}examples"><code>examples/</code><p>A Netlify function, the daily check and a multi-provider setup, all type-checked in CI</p></a>`
-  + `<a class="file" href="${BASE}.github/workflows"><code>.github/workflows</code><p>Tests, builds and publishes to npm with provenance on a version tag</p></a>`
-  + `<a class="file" href="${BASE}docs/scorecards.md"><code>docs/scorecards.md</code><p>The two JSON formats in full</p></a>`;
+const filemap = files.map((f) => `<a class="src" href="${BASE}src/${f}"><code>${f}</code>${hasTest(f) ? '<span class="t">+tests</span>' : ''}<p>${esc(DESC[f] ?? '')}</p></a>`).join('')
+  + `<a class="src" href="${BASE}src/providers"><code>providers/</code><p>Adapters: ${providerFiles.join(', ')}</p></a>`
+  + `<a class="src" href="${BASE}examples"><code>examples/</code><p>A Netlify function, the daily check and a multi-provider setup, all type-checked in CI</p></a>`
+  + `<a class="src" href="${BASE}.github/workflows"><code>.github/workflows</code><p>Tests, builds and publishes to npm with provenance on a version tag</p></a>`
+  + `<a class="src" href="${BASE}docs/scorecards.md"><code>docs/scorecards.md</code><p>The two JSON formats in full</p></a>`;
 const missing = files.filter((f) => !DESC[f]);
 if (missing.length) throw new Error(`site/build.mjs has no description for: ${missing.join(', ')}`);
 
@@ -100,16 +100,22 @@ try { commit = execSync('git rev-parse --short HEAD', { cwd: root }).toString().
 const date = new Date().toISOString().slice(0, 10);
 const css = readFileSync(join(here, 'src/style.css'));
 const js = readFileSync(join(here, 'src/app.js'));
-const v = createHash('sha256').update(css).update(js).digest('hex').slice(0, 10);
+const theme = readFileSync(join(here, 'src/theme.js'));
+const v = createHash('sha256').update(css).update(js).update(theme).digest('hex').slice(0, 10);
+
+// The ticker: facts that are written on the page below, so it says nothing the page does not.
+const ticker = ['<b>1 in 15</b> free answers usable on 28 Oct 2026', 'paid model about <b>3 s</b> for under a tenth of a cent', '<b>11</b> kinds of failure, each with plain advice', '<b>0</b> dependencies', 'MIT licence'].map((t) => `<span>${t}</span>`).join('');
 rmSync(out, { recursive: true, force: true });
 mkdirSync(out, { recursive: true });
 const html = readFileSync(join(here, 'src/index.html'), 'utf8')
-  .replaceAll('{{v}}', v).replaceAll('{{version}}', pkg.version).replaceAll('{{commit}}', commit).replaceAll('{{date}}', date)
+  .replaceAll('{{v}}', v).replaceAll('{{ticker}}', ticker).replaceAll('{{version}}', pkg.version).replaceAll('{{commit}}', commit).replaceAll('{{date}}', date)
   .replace('{{providers}}', providers).replace('{{vet}}', vet).replace('{{filemap}}', filemap)
   .replace('{{data}}', JSON.stringify({ errors }).replace(/</g, '\\u003c'));
 writeFileSync(join(out, 'index.html'), html);
 copyFileSync(join(here, 'src/style.css'), join(out, 'style.css'));
 copyFileSync(join(here, 'src/app.js'), join(out, 'app.js'));
+copyFileSync(join(here, 'src/theme.js'), join(out, 'theme.js'));
+cpSync(join(here, 'src/fonts'), join(out, 'fonts'), { recursive: true });
 copyFileSync(join(here, 'src/favicon.svg'), join(out, 'favicon.svg'));
 copyFileSync(join(here, 'src/_headers'), join(out, '_headers'));
 copyFileSync(join(here, 'src/robots.txt'), join(out, 'robots.txt'));

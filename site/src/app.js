@@ -1,6 +1,5 @@
 'use strict';
 // The simulator, the failure kinds and the reveal-on-scroll. No network, no storage, no third parties.
-document.documentElement.classList.remove('js-off');
 const DATA = JSON.parse(document.getElementById('data').textContent);
 const $ = (id) => document.getElementById(id);
 const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text !== undefined) e.textContent = text; return e; };
@@ -95,7 +94,7 @@ function run(id) {
     const tr = $('tr-' + a.p);
     if (a.skip) {
       // A lane that is never used says why; one that is used gets the reason in the log, so the two do not overlap.
-      if (!hasBar[a.p]) { const sk = el('div', 'skip', a.skip); tr.appendChild(sk); timers.push(setTimeout(() => { sk.style.opacity = 1; }, delay)); }
+      if (!hasBar[a.p]) { const sk = el('div', 'lane-skip', a.skip); tr.appendChild(sk); timers.push(setTimeout(() => { sk.style.opacity = 1; }, delay)); }
       line('<span class="d">' + a.p + ' phase ' + a.skip + '</span>'); delay += 500; return;
     }
     const b = el('div', 'bar ' + a.o, a.m); b.title = a.m + ' · ' + a.d.toFixed(1) + ' s'; b.style.left = pct(t); tr.appendChild(b);
@@ -124,6 +123,60 @@ DATA.errors.filter((e) => !e.hidden).forEach((e) => {
   errs.appendChild(b);
 });
 
-const io = new IntersectionObserver((es) => es.forEach((e) => { if (e.isIntersecting) { e.target.classList.add('vis'); io.unobserve(e.target); } }), { threshold: 0.08 });
-document.querySelectorAll('.reveal').forEach((n) => io.observe(n));
-window.addEventListener('beforeprint', () => document.querySelectorAll('.reveal').forEach((n) => n.classList.add('vis')));
+// Reveal on scroll: content is visible by default; the .js class (set in theme.js) only adds the starting state.
+const io = new IntersectionObserver((es) => es.forEach((e) => { if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); } }), { threshold: 0.08 });
+document.querySelectorAll('.rise').forEach((n) => io.observe(n));
+window.addEventListener('beforeprint', () => document.querySelectorAll('.rise').forEach((n) => n.classList.add('in')));
+
+// Site chrome: theme switch, reading progress, the section being read.
+(() => {
+  const root = document.documentElement;
+  const btn = $('theme');
+  const isDark = () => (root.dataset.theme ? root.dataset.theme === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches);
+  const label = () => btn.setAttribute('aria-label', isDark() ? 'Switch to light mode' : 'Switch to dark mode');
+  label();
+  btn.addEventListener('click', () => {
+    root.dataset.theme = isDark() ? 'light' : 'dark';
+    try { localStorage.setItem('ls-theme', root.dataset.theme); } catch (e) { /* storage blocked: the choice lasts for this visit */ }
+    label();
+  });
+
+  const bar = $('progress');
+  let ticking = false;
+  const update = () => {
+    const max = document.documentElement.scrollHeight - innerHeight;
+    bar.style.setProperty('--p', max > 0 ? Math.min(1, scrollY / max) : 0);
+    ticking = false;
+  };
+  addEventListener('scroll', () => { if (!ticking) { ticking = true; requestAnimationFrame(update); } }, { passive: true });
+  addEventListener('resize', update);
+  update();
+
+  const links = [...document.querySelectorAll('.sections a[href^="#"]')];
+  const targets = links.map((a) => $(a.hash.slice(1))).filter(Boolean);
+  const so = new IntersectionObserver((es) => {
+    const vis = es.filter((e) => e.isIntersecting).sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
+    if (!vis[0]) return;
+    links.forEach((a) => {
+      if (a.hash === '#' + vis[0].target.id) {
+        a.setAttribute('aria-current', 'location');
+        const nav = a.parentElement, l = a.offsetLeft - nav.offsetLeft;
+        if (l < nav.scrollLeft || l + a.offsetWidth > nav.scrollLeft + nav.clientWidth) nav.scrollTo({ left: l - 12, behavior: 'smooth' });
+      } else a.removeAttribute('aria-current');
+    });
+  }, { rootMargin: '-35% 0px -60% 0px' });
+  targets.forEach((t) => so.observe(t));
+
+  // In-page links move focus to the section, so keyboard and screen-reader users land there.
+  document.addEventListener('click', (e) => {
+    const a = e.target.closest('a[href^="#"]');
+    if (!a || e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+    const t = $(a.hash.slice(1));
+    if (!t) return;
+    e.preventDefault();
+    t.scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' });
+    if (!t.hasAttribute('tabindex')) t.setAttribute('tabindex', '-1');
+    t.focus({ preventScroll: true });
+    try { history.pushState(null, '', '#' + t.id); } catch (err) { /* ignore */ }
+  });
+})();
