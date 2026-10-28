@@ -196,7 +196,7 @@ npm test
 npm run build
 ```
 
-Releases: bump `version` in `package.json`, then push a tag (`git tag v0.1.0 && git push --tags`). The release workflow tests, builds and publishes to npm with provenance. It needs an `NPM_TOKEN` secret on the repository.
+Releases: bump `version` in `package.json`, then push a tag (`git tag v0.1.0 && git push --tags`). The release workflow tests, builds and publishes to npm with provenance. It uses npm trusted publishing, so there is no token to keep: npm trusts this repository and `release.yml` directly (set up under the package's Settings on npmjs.com).
 
 ## Licence
 
