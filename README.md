@@ -83,6 +83,10 @@ const { ok, withdrawn, shortTiers } = await ai.checkModels();
 
 `withdrawn` lists preferred models that have gone. That is harmless, they are already replaced. `ok` is false only when the catalogue can't be read or a tier is left with fewer than two real models. Without a daily run, a request that finds the saved catalogue over a day old refreshes it in the background.
 
+### Letting measurements decide the order
+
+A scorecard (a small JSON file of measured results) can put the models that did best on your kind of task first, and Lodestone can publish its own live success rates and speeds in the same format. [Naija Eval](https://naija-eval.extrafemi.com) publishes translation and speech quality for Hausa, Igbo and Yoruba this way. It is opt-in, per task, and only changes the order models are tried in. See [docs/scorecards.md](docs/scorecards.md).
+
 ### Caching
 
 Pass `cacheKey` for a pure, repeatable task (for example a hash of a job page) and the answer is saved in the store and reused for `cacheTtlMs` (a day by default). Failures are never cached.

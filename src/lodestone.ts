@@ -1,4 +1,5 @@
 import { createCatalog, pickModels, ROUTER, type CatalogModel } from './catalog.js';
+import { CANDIDATES_SCHEMA, type Candidates, type Candidate } from './candidates.js';
 import { LodestoneError, messageFrom, ProviderError, type FailureKind } from './errors.js';
 import { tryParseJson } from './json.js';
 import { DEFAULT_MODELS, DEFAULT_PAID_MODELS } from './models.js';
@@ -6,10 +7,18 @@ import { readRateLimit, type RateLimitReading } from './rateLimit.js';
 import { anthropic } from './providers/anthropic.js';
 import { google } from './providers/google.js';
 import { openrouter } from './providers/openrouter.js';
+import { rankModels, type QualityQuery, type Scorecard } from './scorecard.js';
+import type { Stats } from './stats.js';
 import { memoryStore } from './store.js';
 import type { ContentPart, KeyValueStore, Message, Provider, ProviderReply, Tier, Usage } from './types.js';
 
-export interface Profile { tier: Tier; maxTokens?: number; temperature?: number }
+export interface Profile {
+  tier: Tier;
+  maxTokens?: number;
+  temperature?: number;
+  /** Put the models a scorecard measured best on this first. See `scorecards`. */
+  quality?: QualityQuery;
+}
 
 export interface FallbackConfig {
   provider: Provider;
@@ -42,6 +51,13 @@ export interface LodestoneConfig {
   providers?: Record<string, Provider>;
   /** Other providers, each with its own key, tried after OpenRouter has failed. */
   fallbacks?: FallbackConfig[];
+  /** Measured results about models (see scorecard.ts). With a `quality` query on the task
+   *  or the call, the free, paid and fallback models are put in order of their score. Models
+   *  nobody has measured keep their place. A function is called per request, so it can fetch
+   *  and cache; if it fails or takes over 1.5 s the order is left alone. */
+  scorecards?: Scorecard[] | (() => Promise<Scorecard[]>);
+  /** Records every attempt so you can publish how each model does (stats.scorecard()). */
+  stats?: Stats;
   /** Named tasks, so calls say what they are doing and not which model to use. */
   profiles?: Record<string, Profile>;
   /** Where the model catalogue and cached answers are kept. Default: memory. */
@@ -71,6 +87,8 @@ export interface CompleteOptions {
   route?: RouteStep[];
   /** A key in `profiles`. */
   task?: string;
+  /** Overrides the profile's quality query. */
+  quality?: QualityQuery;
   /** Overrides the profile's tier. Default: 'vision' if the messages contain an image, else 'fast'. */
   tier?: Tier;
   prompt?: string;
@@ -125,6 +143,14 @@ export function createLodestone(config: LodestoneConfig = {}) {
     try { return pickModels(tier, await catalog.load(), prefs[tier]); } catch { return prefs[tier]; }
   }
 
+  /** The scorecards, or none: never throws and never holds a request up for long. */
+  async function cards(): Promise<Scorecard[]> {
+    const src = config.scorecards;
+    if (!src) return [];
+    if (Array.isArray(src)) return src;
+    try { return await Promise.race([src(), new Promise<Scorecard[]>((resolve) => setTimeout(() => resolve([]), 1_500).unref?.())]); } catch { return []; }
+  }
+
   async function complete(opts: CompleteOptions): Promise<CompleteResult> {
     const messages: Message[] = opts.messages ?? (opts.prompt !== undefined ? [{ role: 'user', content: opts.prompt }] : []);
     if (messages.length === 0) throw new Error('complete() needs a prompt or messages');
@@ -134,6 +160,9 @@ export function createLodestone(config: LodestoneConfig = {}) {
     const tier: Tier = opts.tier ?? profile?.tier ?? (images ? 'vision' : 'fast');
     const maxTokens = opts.maxTokens ?? profile?.maxTokens ?? 3500;
     const temperature = opts.temperature ?? profile?.temperature ?? (opts.route ? undefined : 0.2);
+
+    const quality = opts.quality ?? profile?.quality;
+    const order = async (models: string[]) => (quality && models.length > 1 ? rankModels(models, await cards(), quality, { now }) : models);
 
     const cacheSlot = opts.cacheKey ? `lodestone:cache:${opts.cacheKey}` : null;
     if (cacheSlot) {
@@ -174,7 +203,9 @@ export function createLodestone(config: LodestoneConfig = {}) {
         else if (e instanceof ProviderError) out = { kind: 'fail', status: e.status, body: e.body, message: messageFrom(e.body) };
         else out = { kind: 'fail', status: 599, body: (e as Error).message };
       }
-      config.onAttempt?.({ provider: provider.name, model, phase, outcome: out.kind === 'ok' ? 'ok' : out.kind === 'timeout' ? 'timeout' : 'failed', status: out.kind === 'fail' ? out.status : undefined, ms: now() - at });
+      const event: AttemptEvent = { provider: provider.name, model, phase, outcome: out.kind === 'ok' ? 'ok' : out.kind === 'timeout' ? 'timeout' : 'failed', status: out.kind === 'fail' ? out.status : undefined, ms: now() - at };
+      config.stats?.record(event);
+      config.onAttempt?.(event);
       last = out;
       return out;
     };
@@ -209,7 +240,7 @@ export function createLodestone(config: LodestoneConfig = {}) {
 
     // Phase 1: OpenRouter's free models. A withdrawn one has already been replaced by resolveModels.
     if (orKey) {
-      const models = await resolveModels(tier);
+      const models = await order(await resolveModels(tier));
       for (let i = 0; i < models.length && freeLeft() >= t.minSlice; i++) {
         const slice = i >= models.length - 1 ? freeLeft() : Math.min(later ? t.freeSliceLater : t.freeSlice, freeLeft());
         const out = await attempt(router, orKey, models[i], 'free', slice);
@@ -222,7 +253,7 @@ export function createLodestone(config: LodestoneConfig = {}) {
 
       // Phase 2: a low-cost paid model, which is not under the free-model limits.
       if (paidAvailable && !authFailed) {
-        for (const m of paidModels) {
+        for (const m of await order(paidModels)) {
           if (left() < t.minSlice) break;
           const out = await attempt(router, orKey, m, 'paid', left());
           if (out.kind === 'ok') return finish(router, m, out.reply);
@@ -236,7 +267,7 @@ export function createLodestone(config: LodestoneConfig = {}) {
 
     // Phase 3: other providers, with their own keys.
     for (const fb of fbs) {
-      for (const m of fb.models) {
+      for (const m of await order(fb.models)) {
         if (left() < t.minSlice) break;
         const out = await attempt(fb.provider, fb.apiKey, m, 'fallback', left());
         if (out.kind === 'ok') return finish(fb.provider, m, out.reply);
@@ -295,7 +326,23 @@ export function createLodestone(config: LodestoneConfig = {}) {
     return { ok: shortTiers.length === 0, catalogSize: models.length, withdrawn, shortTiers };
   }
 
-  return { complete, json, resolveModels, refreshCatalog, checkModels };
+  /** Every model this instance can call, for an evaluator to benchmark (see candidates.ts). */
+  async function candidates(): Promise<Candidates> {
+    const byKey = new Map<string, Candidate>();
+    const add = (id: string, provider: string, role: string) => {
+      if (id === ROUTER) return;
+      const k = `${provider}\u0000${id}`;
+      const c = byKey.get(k) ?? { id, provider, roles: [] };
+      if (!c.roles.includes(role)) c.roles.push(role);
+      byKey.set(k, c);
+    };
+    for (const tier of Object.keys(prefs) as Tier[]) for (const id of await resolveModels(tier)) add(id, 'openrouter', `free:${tier}`);
+    for (const id of paidModels) add(id, 'openrouter', 'paid');
+    for (const fb of fallbacks) for (const id of fb.models) add(id, fb.provider.name, 'fallback');
+    return { schema: CANDIDATES_SCHEMA, source: 'lodestone', generatedAt: new Date(now()).toISOString(), models: [...byKey.values()] };
+  }
+
+  return { complete, json, resolveModels, refreshCatalog, checkModels, candidates };
 }
 
 export type Lodestone = ReturnType<typeof createLodestone>;

@@ -309,3 +309,83 @@ describe('route: an explicit provider and model', () => {
     expect(sent[0]).not.toHaveProperty('temperature');
   });
 });
+
+describe('quality-aware ordering', () => {
+  const NOW = Date.parse('2026-10-28T12:00:00Z');
+  const score = (model: string, value: number) => ({ model, task: 'translate', metric: 'chrf++', value, higherIsBetter: true, n: 100, measuredAt: '2026-10-08', language: 'yo' });
+  const card = { schema: 'model-scorecard/1' as const, source: 'naija-eval', generatedAt: '2026-10-28', scores: [score('free-a', 20), score('free-b', 55)] };
+  const quality = { task: 'translate', metric: 'chrf++', language: 'yo' };
+  const list = { fast: ['free-a:free', 'free-b:free', 'openrouter/free'], strong: ['free-a:free', 'free-b:free', 'openrouter/free'], vision: ['free-a:free', 'free-b:free', 'openrouter/free'] };
+
+  it('tries the model the scorecard measured best first', async () => {
+    const or = mock();
+    const ai = createLodestone({ openrouter: { apiKey: 'k', provider: or, models: list }, scorecards: [card], now: () => NOW });
+    await ai.complete({ prompt: 'x', quality });
+    expect(or.calls[0].model).toBe('free-b:free');
+  });
+  it('uses the quality query from a task profile', async () => {
+    const or = mock();
+    const ai = createLodestone({ openrouter: { apiKey: 'k', provider: or, models: list }, scorecards: [card], now: () => NOW, profiles: { 'translate-yo': { tier: 'strong', quality } } });
+    await ai.complete({ task: 'translate-yo', prompt: 'x' });
+    expect(or.calls[0].model).toBe('free-b:free');
+  });
+  it('leaves the order alone with no query, and with a query nobody measured', async () => {
+    const or = mock();
+    const ai = createLodestone({ openrouter: { apiKey: 'k', provider: or, models: list }, scorecards: [card], now: () => NOW });
+    await ai.complete({ prompt: 'x' });
+    await ai.complete({ prompt: 'x', quality: { ...quality, language: 'ig' } });
+    expect(or.calls.map((c) => c.model)).toEqual(['free-a:free', 'free-a:free']);
+  });
+  it('orders the paid and fallback models too', async () => {
+    const down = (req: ProviderRequest) => (req.model.startsWith('paid') || req.model.startsWith('fb') ? 'ok' : fail(503));
+    const or = mock(down);
+    const fb = mock('ok');
+    const cards = [{ ...card, scores: [score('paid-1', 10), score('paid-2', 70), score('fb-1', 10), score('fb-2', 70)] }];
+    const ai = createLodestone({ openrouter: { apiKey: 'k', provider: or, models: list, paidModels: ['paid-1', 'paid-2'], allowPaid: true }, fallbacks: [{ provider: fb, apiKey: 'k', models: ['fb-1', 'fb-2'] }], scorecards: cards, now: () => NOW, timing: quick });
+    expect((await ai.complete({ prompt: 'x', quality })).model).toBe('paid-2');
+    const ai2 = createLodestone({ openrouter: { apiKey: 'k', provider: mock(() => fail(503)), models: list }, fallbacks: [{ provider: fb, apiKey: 'k', models: ['fb-1', 'fb-2'] }], scorecards: cards, now: () => NOW, timing: quick });
+    expect((await ai2.complete({ prompt: 'x', quality })).model).toBe('fb-2');
+  });
+  it('fetches scorecards per request when given a function, and ignores one that fails or is slow', async () => {
+    const or = mock();
+    let calls = 0;
+    const ok = createLodestone({ openrouter: { apiKey: 'k', provider: or, models: list }, scorecards: async () => { calls++; return [card]; }, now: () => NOW });
+    await ok.complete({ prompt: 'x', quality });
+    expect([calls, or.calls[0].model]).toEqual([1, 'free-b:free']);
+
+    const broken = mock();
+    await createLodestone({ openrouter: { apiKey: 'k', provider: broken, models: list }, scorecards: async () => { throw new Error('down'); } }).complete({ prompt: 'x', quality });
+    expect(broken.calls[0].model).toBe('free-a:free');
+  });
+  it('does not reorder a route, which is exactly what the caller asked for', async () => {
+    const a = mock(() => fail(503)); const b = mock('b');
+    const cards = [{ ...card, scores: [score('m1', 10), score('m2', 90)] }];
+    const ai = createLodestone({ providers: { a, b }, scorecards: cards, now: () => NOW });
+    await ai.complete({ prompt: 'x', quality, route: [{ provider: 'a', model: 'm1', apiKey: 'k' }, { provider: 'b', model: 'm2', apiKey: 'k' }] });
+    expect(a.calls[0].model).toBe('m1');
+  });
+});
+
+describe('stats and candidates', () => {
+  it('records every attempt, so live results can be published as a scorecard', async () => {
+    const { createStats } = await import('./stats.js');
+    const stats = createStats();
+    const or = mock((req: ProviderRequest) => (req.model === 'free-a:free' ? fail(503) : 'ok'));
+    await createLodestone({ openrouter: { apiKey: 'k', provider: or, models }, stats }).complete({ prompt: 'x' });
+    const rates = stats.scorecard().scores.filter((s) => s.metric === 'success_rate').map((s) => [s.model, s.value]);
+    expect(rates).toEqual([['free-a:free', 0], ['free-b:free', 100]]);
+  });
+  it('lists every model it could call, with where each is used, for an evaluator to benchmark', async () => {
+    const ai = createLodestone({
+      openrouter: { apiKey: 'k', provider: mock(), models: { fast: ['f1:free', 'shared:free', 'openrouter/free'], strong: ['s1:free', 'shared:free', 'openrouter/free'], vision: ['v1:free', 'openrouter/free'] }, paidModels: ['p1'] },
+      fallbacks: [{ provider: { ...mock(), name: 'anthropic' }, apiKey: 'k', models: ['claude-x'] }],
+    });
+    const c = await ai.candidates();
+    expect(c.schema).toBe('model-candidates/1');
+    const by = Object.fromEntries(c.models.map((m) => [m.id, m]));
+    expect(by['shared:free'].roles).toEqual(['free:fast', 'free:strong']);
+    expect(by['p1']).toMatchObject({ provider: 'openrouter', roles: ['paid'] });
+    expect(by['claude-x']).toMatchObject({ provider: 'anthropic', roles: ['fallback'] });
+    expect(by).not.toHaveProperty('openrouter/free');
+  });
+});
