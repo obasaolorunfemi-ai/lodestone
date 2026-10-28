@@ -159,7 +159,7 @@
     <thead><tr><th>Preset</th><th>Service</th><th>What was checked</th></tr></thead>
     <tbody>{{providers}}</tbody>
   </table></div>
-  <p class="cap">"Model list read" means Lodestone's reader was run against the service's real public list and parsed it correctly. No chat call was made to a service without a key, so those paths are tested against fakes of the documented request, not against the service itself. Requesty and LLM API have no free models; they add redundancy on the paid path. Free redundancy comes from providers with free tiers, such as Groq and Cerebras, whose terms Lodestone has not checked.</p>
+  <p class="cap">"Model list read" means Lodestone's reader was run against the service's real list and parsed it correctly. A chat call has been seen to answer only on Groq (and on OpenRouter, in production); the others are tested against fakes of the documented request, not against the service itself. A live check on 28 October 2026 is how the withdrawn Groq model and the non-chat entries in its list were found, which is why those are in the notes. Requesty and LLM API have no free models; they add redundancy on the paid path. Free redundancy comes from providers with free tiers, such as Groq and Cerebras.</p>
 </section>
 
 <section id="safety" aria-labelledby="safety-h">
