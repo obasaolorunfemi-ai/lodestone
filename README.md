@@ -1,5 +1,7 @@
 # Lodestone
 
+**[lodestone.extrafemi.com](https://lodestone.extrafemi.com)**: an interactive walkthrough of what it does.
+
 Calls AI models so your tool keeps working when a model is withdrawn, slow or rate-limited.
 
 Free and cheap models come and go. A hard-coded model id breaks without warning, one slow model can use your whole time limit, and "429" can mean four different things that need four different messages. Lodestone handles those so each tool doesn't have to.

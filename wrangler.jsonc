@@ -1,0 +1,9 @@
+{
+  // Static site on Cloudflare Workers (static assets only, no Worker script).
+  // Build first: npm run site     then: npx wrangler deploy
+  "name": "lodestone",
+  "compatibility_date": "2026-10-01",
+  // Served at lodestone.extrafemi.com. Cloudflare creates the DNS record and certificate when the zone is on this account.
+  "routes": [{ "pattern": "lodestone.extrafemi.com", "custom_domain": true }],
+  "assets": { "directory": "./site/public", "html_handling": "auto-trailing-slash", "not_found_handling": "404-page" }
+}
