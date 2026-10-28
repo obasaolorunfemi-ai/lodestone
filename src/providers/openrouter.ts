@@ -39,6 +39,8 @@ export function openrouter(opts: OpenRouterOptions = {}): Provider {
           ...(req.temperature === undefined ? {} : { temperature: req.temperature }),
           max_tokens: req.maxTokens,
           ...reasoningFor(req.model),
+          // Only providers that do not keep or train on prompts. Many free models cannot meet this, so the request fails and the next model is tried.
+          ...(req.privacy === 'strict' ? { provider: { data_collection: 'deny' } } : {}),
           messages: [...(req.system ? [{ role: 'system', content: req.system }] : []), ...req.messages.map(wire)],
         }),
         signal: req.signal,

@@ -1,4 +1,6 @@
-import { createCatalog, pickModels, ROUTER, type CatalogModel } from './catalog.js';
+import { createCatalog, pickModels, ROUTER, type Catalog, type CatalogModel } from './catalog.js';
+import { resolveProviderModels, type FillOptions } from './discover.js';
+import type { TrustPolicy } from './trust.js';
 import { CANDIDATES_SCHEMA, type Candidates, type Candidate } from './candidates.js';
 import { LodestoneError, messageFrom, ProviderError, type FailureKind } from './errors.js';
 import { tryParseJson } from './json.js';
@@ -26,6 +28,10 @@ export interface FallbackConfig {
   apiKey: string;
   /** Tried in order. */
   models: string[];
+  /** This provider costs nothing (a free tier, a local server): its calls are not counted against, or stopped by, the spend limit. */
+  free?: boolean;
+  /** Keep this provider's list alive from its own catalogue (needs a provider that can list its models): models it no longer offers, or that are retiring or refused by `trust`, are dropped, and with `fill` a short list is topped up with trusted models within a price limit, never above `max` (default 3). */
+  discover?: { fill?: FillOptions; max?: number };
   /** Also use this provider when the caller supplied their own OpenRouter key. Default false: a fallback has the platform's key, and a caller's own key must never lead to the platform's money being spent. */
   allowWithCallerKey?: boolean;
 }
@@ -71,6 +77,8 @@ export interface LodestoneConfig {
    *  nobody has measured keep their place. A function is called per request, so it can fetch
    *  and cache; if it fails or takes over 1.5 s the order is left alone. */
   scorecards?: Scorecard[] | (() => Promise<Scorecard[]>);
+  /** What may be used, and what discovery may add by itself: trusted publishers, a block list, what providers say they do with prompts, retiring models. See trust.ts. */
+  trust?: TrustPolicy;
   /** Skips models that have been failing, so a request does not spend its time on them (see health.ts). */
   health?: Health;
   /** Counts and limits the platform's spend. Without it nothing is counted or limited. */
@@ -119,6 +127,10 @@ export interface CompleteOptions {
   apiKey?: string;
   /** An answer that fails this check counts as a failed attempt, and the next model is tried. */
   accept?: (text: string) => boolean;
+  /** The prompt must not be kept or trained on (a CV, say). OpenRouter is told to use only providers that do not; other models are used only if their provider's list says so. Many free models cannot meet this, and the paid ones are used instead. */
+  private?: boolean;
+  /** Stops the call when the caller no longer wants the answer (the person left the page). */
+  signal?: AbortSignal;
   /** Same key, same answer: the answer is saved and reused. Only for pure, repeatable tasks. */
   cacheKey?: string;
   cacheTtlMs?: number;
@@ -135,9 +147,27 @@ export interface CompleteResult {
 type Outcome =
   | { kind: 'ok'; reply: ProviderReply }
   | { kind: 'fail'; status: number; body: string; unusable?: boolean; message?: string }
-  | { kind: 'timeout' };
+  | { kind: 'timeout' }
+  | { kind: 'aborted' };
 
 const hasImage = (messages: Message[]) => messages.some((m) => Array.isArray(m.content) && m.content.some((p: ContentPart) => p.type === 'image'));
+
+export interface CheckResult {
+  ok: boolean;
+  error?: string;
+  catalogSize?: number;
+  /** Preferred models the catalogue no longer lists (already replaced). */
+  withdrawn?: string[];
+  /** Models that stop being offered within a week (already left out). */
+  expiring?: string[];
+  shortTiers?: Tier[];
+  /** The same check for each other provider that can list its models. */
+  providers?: Record<string, { models: number; withdrawn: string[]; expiring: string[]; error?: string }>;
+}
+
+/** How many candidates are kept in the background for a tier. A request still tries at most three. */
+const POOL = 8;
+const ACTIVE = 3;
 
 export function createLodestone(config: LodestoneConfig = {}) {
   const budget = config.budgetMs ?? 24_000;
@@ -152,6 +182,12 @@ export function createLodestone(config: LodestoneConfig = {}) {
   const store = config.store ?? memoryStore();
   const fetchImpl = config.fetch ?? fetch;
   const catalog = createCatalog(store, fetchImpl, now);
+  const policy = config.trust;
+  /** One catalogue per fallback provider that can list its models, kept in the same store. */
+  const fbCatalogs = new Map<FallbackConfig, Catalog>();
+  for (const fb of config.fallbacks ?? []) {
+    if (fb.provider.listModels) fbCatalogs.set(fb, createCatalog(store, fetchImpl, now, { key: `lodestone:catalog:${fb.provider.name}`, list: () => fb.provider.listModels!(fb.apiKey) }));
+  }
   const router = config.openrouter?.provider ?? openrouter({ fetch: fetchImpl });
   const prefs: Record<Tier, string[]> = { ...DEFAULT_MODELS, ...config.openrouter?.models };
   const paidModels = config.openrouter?.paidModels ?? DEFAULT_PAID_MODELS;
@@ -160,7 +196,17 @@ export function createLodestone(config: LodestoneConfig = {}) {
 
   /** The ids to send for a tier: preferences that still exist, plus current replacements. Never throws, never waits on the network. */
   async function resolveModels(tier: Tier): Promise<string[]> {
-    try { return pickModels(tier, await catalog.load(), prefs[tier]); } catch { return prefs[tier]; }
+    try { return pickModels(tier, await catalog.load(), prefs[tier], { policy, now: now() }); } catch { return prefs[tier]; }
+  }
+  /** A longer, ranked list of live candidates for a tier, to choose from when some are down: the best models for the tier that exist, are allowed, and are not retiring. */
+  async function resolvePool(tier: Tier, strict: boolean): Promise<string[]> {
+    try { return pickModels(tier, await catalog.load(), prefs[tier], { policy, strict, depth: POOL, now: now() }); } catch { return prefs[tier]; }
+  }
+  /** A fallback provider's models for a tier: the app's own, pruned and topped up from the provider's catalogue. */
+  async function resolveFallback(fb: FallbackConfig, tier: Tier, strict: boolean): Promise<string[]> {
+    const cat = fbCatalogs.get(fb);
+    if (!cat) return fb.models;
+    try { return resolveProviderModels(fb.models, await cat.load(), { tier, policy, strict, fill: fb.discover?.fill, max: fb.discover?.max, now: now() }); } catch { return fb.models; }
   }
 
   /** The scorecards, or none: never throws and never holds a request up for long. */
@@ -190,6 +236,8 @@ export function createLodestone(config: LodestoneConfig = {}) {
     const maxTokens = opts.maxTokens ?? profile?.maxTokens ?? 3500;
     const temperature = opts.temperature ?? profile?.temperature ?? (opts.route ? undefined : 0.2);
 
+    const strict = Boolean(opts.private);
+    if (opts.signal?.aborted) throw new LodestoneError('aborted');
     const quality = opts.quality ?? profile?.quality;
     const order = async (models: string[]) => (quality && models.length > 1 ? rankModels(models, await cards(), quality, { now }) : models);
 
@@ -230,8 +278,8 @@ export function createLodestone(config: LodestoneConfig = {}) {
       return keep;
     };
     /** May the platform's money be spent on this attempt? A caller's own key is their money, not ours. */
-    const mayUse = async (provider: Provider, model: string, phase: 'paid' | 'fallback'): Promise<boolean> => {
-      if (callerKey || !config.spend) return true;
+    const mayUse = async (provider: Provider, model: string, phase: 'paid' | 'fallback', free = false): Promise<boolean> => {
+      if (callerKey || free || !config.spend) return true;
       if (await config.spend.allow({ provider: provider.name, model, phase })) return true;
       spendBlocked = true;
       config.onAttempt?.({ provider: provider.name, model, phase, outcome: 'skipped', ms: 0 });
@@ -243,28 +291,33 @@ export function createLodestone(config: LodestoneConfig = {}) {
       const at = now();
       let out: Outcome;
       try {
-        const reply = await provider.call({ model, system: opts.system, messages, maxTokens, temperature, apiKey, signal: AbortSignal.timeout(ms) });
+        const timeout = AbortSignal.timeout(ms);
+        const signal = opts.signal ? (typeof AbortSignal.any === 'function' ? AbortSignal.any([timeout, opts.signal]) : timeout) : timeout;
+        const reply = await provider.call({ model, system: opts.system, messages, maxTokens, temperature, apiKey, signal, ...(strict ? { privacy: 'strict' as const } : {}) });
         if (!reply.text.trim()) out = { kind: 'fail', status: 502, body: 'empty answer', unusable: true };
         else if (opts.accept && !opts.accept(reply.text)) out = { kind: 'fail', status: 422, body: 'answer failed the check', unusable: true };
         else out = { kind: 'ok', reply };
       } catch (e) {
         const name = (e as Error).name;
-        if (name === 'TimeoutError' || name === 'AbortError') out = { kind: 'timeout' };
+        if (opts.signal?.aborted) out = { kind: 'aborted' };
+        else if (name === 'TimeoutError' || name === 'AbortError') out = { kind: 'timeout' };
         else if (e instanceof ProviderError) out = { kind: 'fail', status: e.status, body: e.body, message: messageFrom(e.body) };
         else out = { kind: 'fail', status: 599, body: (e as Error).message };
       }
+      if (out.kind === 'aborted') throw new LodestoneError('aborted'); // the person left: nothing more to try
       const event: AttemptEvent = { provider: provider.name, model, phase, outcome: out.kind === 'ok' ? 'ok' : out.kind === 'timeout' ? 'timeout' : 'failed', status: out.kind === 'fail' ? out.status : undefined, ms: now() - at };
       // A key or credit problem (401, 402, 403) says nothing about the model, so it is not counted against it.
       const credential = out.kind === 'fail' && [401, 402, 403].includes(out.status);
-      if (!credential) { config.stats?.record(event); await config.health?.record(provider.name, model, out.kind === 'ok'); }
+      // A call marked private can fail because few providers meet the rule: that says nothing about the model.
+      if (!credential && !strict) { config.stats?.record(event); await config.health?.record(provider.name, model, out.kind === 'ok'); }
       config.onAttempt?.(event);
       last = out;
       return out;
     };
 
-    const finish = async (provider: Provider, model: string, reply: ProviderReply, phase?: 'paid' | 'fallback'): Promise<CompleteResult> => {
+    const finish = async (provider: Provider, model: string, reply: ProviderReply, phase?: 'paid' | 'fallback', free = false): Promise<CompleteResult> => {
       const result: CompleteResult = { text: reply.text, provider: provider.name, model, usage: reply.usage };
-      if (phase && !callerKey && config.spend) {
+      if (phase && !callerKey && !free && config.spend) {
         const costUsd = reply.usage?.costUsd ?? (await estimateCost(model, reply.usage));
         // A ledger that fails must never fail an answer the person is waiting for.
         try { await config.spend.record({ provider: provider.name, model, phase, usage: reply.usage, costUsd }); } catch { /* not counted */ }
@@ -301,11 +354,17 @@ export function createLodestone(config: LodestoneConfig = {}) {
 
     /** The free models. A withdrawn one has already been replaced by resolveModels. */
     const runFree = async (): Promise<CompleteResult | null> => {
-      const all = await order(await resolveModels(tier));
-      let models = await healthy(router, all, 'free');
+      const all = await order(await resolvePool(tier, strict));
+      // Choose the live ones from the pool: a model that is down is replaced by the next best, so the
+      // list a request walks stays short however long the pool is.
+      const live = await healthy(router, all, 'free');
+      const routerLive = live.includes(ROUTER);
+      let models = [...live.filter((m) => m !== ROUTER).slice(0, ACTIVE - (routerLive ? 1 : 0)), ...(routerLive ? [ROUTER] : [])];
       // With nothing after the free models to fall back on, a model that may be down is still better than no attempt.
-      if (models.length === 0 && !later && !paidFirst) models = all;
-      const leftHere = () => (paidFirst ? left() : freeLeft());
+      if (models.length === 0 && !later && !paidFirst) models = all.slice(0, ACTIVE);
+      // Behind a paid-first attempt the free models are a backup, and other providers may still be waiting their turn: an OpenRouter outage must not use up the whole budget on free models.
+      const freeStartedAt = now();
+      const leftHere = () => (paidFirst ? (fbs.length ? Math.min(left(), t.freePhaseLater - (now() - freeStartedAt)) : left()) : freeLeft());
       for (let i = 0; i < models.length && leftHere() >= t.minSlice; i++) {
         const slice = i >= models.length - 1 ? leftHere() : Math.min(later && !paidFirst ? t.freeSliceLater : t.freeSlice, leftHere());
         const out = await attempt(router, orKey!, models[i], 'free', slice);
@@ -327,8 +386,8 @@ export function createLodestone(config: LodestoneConfig = {}) {
         const m = paidList[i];
         if (left() < t.minSlice) break;
         if (!(await mayUse(router, m, 'paid'))) continue;
-        // Going first, a paid model may not use all the time: the free models and the rest need some.
-        const ms = paidFirst && i < paidList.length - 1 ? Math.min(left(), t.paidSlice) : left();
+        // Going first, a paid model may not use all the time: the free models and other providers come after it and need some.
+        const ms = paidFirst ? Math.min(left(), t.paidSlice) : left();
         const out = await attempt(router, orKey!, m, 'paid', ms);
         if (out.kind === 'ok') return finish(router, m, out.reply, 'paid');
         if (out.kind === 'fail') {
@@ -351,14 +410,14 @@ export function createLodestone(config: LodestoneConfig = {}) {
 
     // Phase 3: other providers, with their own keys.
     for (const fb of fbs) {
-      const fbAll = await order(fb.models);
+      const fbAll = await order(await resolveFallback(fb, tier, strict));
       let fbList = await healthy(fb.provider, fbAll, 'fallback');
       if (fbList.length === 0) fbList = fbAll;
       for (const m of fbList) {
         if (left() < t.minSlice) break;
-        if (!(await mayUse(fb.provider, m, 'fallback'))) continue;
+        if (!(await mayUse(fb.provider, m, 'fallback', fb.free))) continue;
         const out = await attempt(fb.provider, fb.apiKey, m, 'fallback', left());
-        if (out.kind === 'ok') return finish(fb.provider, m, out.reply, 'fallback');
+        if (out.kind === 'ok') return finish(fb.provider, m, out.reply, 'fallback', fb.free);
         if (out.kind === 'fail' && out.status === 401) break; // this provider's key is wrong: skip its other models
       }
     }
@@ -405,14 +464,38 @@ export function createLodestone(config: LodestoneConfig = {}) {
    *  been withdrawn (harmless, they are replaced) and which tiers are left with fewer
    *  than two real models to try (not harmless). `ok` is false only when the
    *  catalogue cannot be read or a tier is short. */
-  async function checkModels(): Promise<{ ok: boolean; error?: string; catalogSize?: number; withdrawn?: string[]; shortTiers?: Tier[] }> {
+  async function checkModels(): Promise<CheckResult> {
     const models = await catalog.refresh().catch(() => null);
     if (!models) return { ok: false, error: 'could not read the OpenRouter catalogue' };
     const ids = new Set(models.map((m) => m.id));
+    const byId = new Map(models.map((m) => [m.id, m]));
     const all = [...new Set([...Object.values(prefs).flat(), ...paidModels])].filter((m) => m !== ROUTER);
     const withdrawn = all.filter((m) => !ids.has(m));
-    const shortTiers = (Object.keys(prefs) as Tier[]).filter((tier) => pickModels(tier, models, prefs[tier]).filter((m) => m !== ROUTER).length < 2);
-    return { ok: shortTiers.length === 0, catalogSize: models.length, withdrawn, shortTiers };
+    const horizon = (policy?.expiringWithinDays ?? 7) * 86_400_000;
+    const expiring = all.filter((m) => { const d = byId.get(m)?.expiration_date; return d !== undefined && Date.parse(d) - now() < horizon; });
+    const shortTiers = (Object.keys(prefs) as Tier[]).filter((tier) => pickModels(tier, models, prefs[tier], { policy, now: now() }).filter((m) => m !== ROUTER).length < 2);
+
+    // Every other provider that can list its models gets the same check: what has gone, and what is retiring.
+    const providers: NonNullable<CheckResult['providers']> = {};
+    for (const [fb, cat] of fbCatalogs) {
+      const listed = await cat.refresh().catch(() => null);
+      if (!listed) { providers[fb.provider.name] = { models: 0, withdrawn: [], expiring: [], error: 'could not read its model list' }; continue; }
+      const have = new Map(listed.map((m) => [m.id, m]));
+      providers[fb.provider.name] = {
+        models: listed.length,
+        withdrawn: fb.models.filter((m) => !have.has(m)),
+        expiring: fb.models.filter((m) => { const d = have.get(m)?.expiration_date; return d !== undefined && Date.parse(d) - now() < horizon; }),
+      };
+    }
+    return { ok: shortTiers.length === 0, catalogSize: models.length, withdrawn, expiring, shortTiers, ...(Object.keys(providers).length ? { providers } : {}) };
+  }
+
+  /** An answer already saved under this key, without calling any model: so a caller can serve it without counting it as a request. */
+  async function peek(cacheKey: string, ttlMs = 24 * 3_600_000): Promise<CompleteResult | null> {
+    try {
+      const hit = (await store.get(`lodestone:cache:${cacheKey}`)) as (CompleteResult & { at: number }) | null;
+      return hit?.text && now() - hit.at < ttlMs ? { text: hit.text, provider: hit.provider, model: hit.model, cached: true } : null;
+    } catch { return null; }
   }
 
   /** Every model this instance can call, for an evaluator to benchmark (see candidates.ts). */
@@ -431,7 +514,7 @@ export function createLodestone(config: LodestoneConfig = {}) {
     return { schema: CANDIDATES_SCHEMA, source: 'lodestone', generatedAt: new Date(now()).toISOString(), models: [...byKey.values()] };
   }
 
-  return { complete, json, resolveModels, refreshCatalog, checkModels, candidates };
+  return { complete, json, resolveModels, refreshCatalog, checkModels, candidates, peek };
 }
 
 export type Lodestone = ReturnType<typeof createLodestone>;

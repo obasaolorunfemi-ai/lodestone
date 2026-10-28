@@ -1,0 +1,6 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": { "noEmit": true, "rootDir": ".", "baseUrl": ".", "paths": { "@extrafemi-ai/lodestone": ["./src/index.ts"] }, "types": ["node"] },
+  "include": ["examples", "src"],
+  "exclude": ["src/**/*.test.ts"]
+}

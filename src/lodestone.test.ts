@@ -172,12 +172,12 @@ describe('withdrawn models heal themselves', () => {
     const or = mock();
     const ai = createLodestone({
       openrouter: { apiKey: 'k', provider: or, models: { fast: ['gone-1:free', 'gone-2:free', 'openrouter/free'] } },
-      fetch: catalogFetch([m('newer-lightning:free'), m('another-mini:free')]),
+      fetch: catalogFetch([m('google/newer-lightning:free'), m('google/another-mini:free')]),
     });
     await ai.refreshCatalog();
     await ai.complete({ prompt: 'x' });
     expect(or.calls[0].model).not.toContain('gone');
-    expect(['newer-lightning:free', 'another-mini:free']).toContain(or.calls[0].model);
+    expect(['google/newer-lightning:free', 'google/another-mini:free']).toContain(or.calls[0].model);
   });
   it('uses the preferences as given before any catalogue exists', async () => {
     const or = mock();
@@ -186,7 +186,7 @@ describe('withdrawn models heal themselves', () => {
     expect(or.calls[0].model).toBe('free-a:free');
   });
   it('checkModels reports what was withdrawn and whether a tier is short of models', async () => {
-    const ai = createLodestone({ openrouter: { apiKey: 'k', provider: mock(), models: { fast: ['here:free', 'gone:free', 'openrouter/free'] }, paidModels: [] }, fetch: catalogFetch([m('here:free'), m('spare:free')]) });
+    const ai = createLodestone({ openrouter: { apiKey: 'k', provider: mock(), models: { fast: ['google/here:free', 'gone:free', 'openrouter/free'] }, paidModels: [] }, fetch: catalogFetch([m('google/here:free'), m('google/spare:free')]) });
     const r = await ai.checkModels();
     expect(r.withdrawn).toContain('gone:free');
     expect(r.shortTiers).toEqual(['vision']); // text and strong can use both models; neither takes images
@@ -590,5 +590,183 @@ describe('paidFirst', () => {
     const or = mock((req: ProviderRequest) => (req.model.startsWith('paid') ? fail(503) : 'free ok'));
     await createLodestone(cfg(or, { spend: { allow: () => true, record: (i: { phase: string }) => { seen.push(i.phase); } } })).complete({ prompt: 'x' });
     expect(seen).toEqual([]);
+  });
+});
+
+describe('the list stays short however many models exist', () => {
+  const NOW = Date.parse('2026-10-28T12:00:00Z');
+  const cm = (id: string, o: Record<string, unknown> = {}) => ({ id, context_length: 262144, architecture: { input_modalities: ['text'], output_modalities: ['text'] }, pricing: { prompt: '0', completion: '0' }, ...o });
+  const many = Array.from({ length: 20 }, (_, i) => cm(`google/gemma-${i}-mini:free`));
+  const withCatalog = (list: unknown[]) => (async () => new Response(JSON.stringify({ data: list }))) as typeof fetch;
+
+  it('tries at most three models, however many the catalogue has', async () => {
+    const or = mock(() => fail(503));
+    const ai = createLodestone({ openrouter: { apiKey: 'k', provider: or, models: { fast: ['google/gemma-0-mini:free', 'openrouter/free'], strong: [], vision: [] } }, fetch: withCatalog(many), now: () => NOW });
+    await ai.refreshCatalog();
+    await ai.complete({ prompt: 'x' }).catch(() => {});
+    expect(or.calls.length).toBeLessThanOrEqual(3);
+  });
+  it('replaces a model that is down with the next best from the pool, so three live models are still tried', async () => {
+    const { createHealth } = await import('./health.js');
+    const health = createHealth({ now: () => NOW });
+    for (let i = 0; i < 3; i++) await health.record('mock', 'google/gemma-0-mini:free', false);
+    const or = mock(() => fail(503));
+    const ai = createLodestone({ openrouter: { apiKey: 'k', provider: or, models: { fast: ['google/gemma-0-mini:free', 'openrouter/free'], strong: [], vision: [] } }, fetch: withCatalog(many), health, now: () => NOW });
+    await ai.refreshCatalog();
+    await ai.complete({ prompt: 'x' }).catch(() => {});
+    const tried = or.calls.map((c) => c.model);
+    expect(tried).not.toContain('google/gemma-0-mini:free');   // the one that is down is skipped
+    expect(tried.filter((m) => m !== 'openrouter/free').length).toBe(2); // and another takes its place
+  });
+  it('does not add a model from a publisher it does not know, by default', async () => {
+    const or = mock(() => fail(503));
+    const ai = createLodestone({ openrouter: { apiKey: 'k', provider: or, models: { fast: ['gone:free', 'openrouter/free'], strong: [], vision: [] } }, fetch: withCatalog([cm('shady-lab/sneaky:free'), cm('google/gemma-1-mini:free')]), now: () => NOW });
+    await ai.refreshCatalog();
+    await ai.complete({ prompt: 'x' }).catch(() => {});
+    expect(or.calls.map((c) => c.model)).not.toContain('shady-lab/sneaky:free');
+    expect(or.calls.map((c) => c.model)).toContain('google/gemma-1-mini:free');
+  });
+  it('can be told to trust another publisher, or to block one', async () => {
+    const run = async (trust: object) => {
+      const or = mock(() => fail(503));
+      const ai = createLodestone({ openrouter: { apiKey: 'k', provider: or, models: { fast: ['gone:free', 'openrouter/free'], strong: [], vision: [] } }, trust, fetch: withCatalog([cm('shady-lab/sneaky:free'), cm('google/gemma-1-mini:free')]), now: () => NOW });
+      await ai.refreshCatalog(); await ai.complete({ prompt: 'x' }).catch(() => {});
+      return or.calls.map((c) => c.model);
+    };
+    expect(await run({ publishers: ['shady-lab'] })).toContain('shady-lab/sneaky:free');
+    expect(await run({ block: ['google/'] })).not.toContain('google/gemma-1-mini:free');
+  });
+  it('leaves out a free model that is about to be retired', async () => {
+    const or = mock(() => fail(503));
+    const ai = createLodestone({ openrouter: { apiKey: 'k', provider: or, models: { fast: ['google/retiring-mini:free', 'google/staying-mini:free', 'openrouter/free'], strong: [], vision: [] } }, fetch: withCatalog([cm('google/retiring-mini:free', { expiration_date: '2026-10-31' }), cm('google/staying-mini:free')]), now: () => NOW });
+    await ai.refreshCatalog();
+    await ai.complete({ prompt: 'x' }).catch(() => {});
+    expect(or.calls.map((c) => c.model)).not.toContain('google/retiring-mini:free');
+  });
+});
+
+describe('other providers keep their lists alive', () => {
+  const NOW = Date.parse('2026-10-28T12:00:00Z');
+  const gateway = (rows: CatalogModel[], reply: (r: ProviderRequest) => string | Promise<never> = () => 'from gateway') => {
+    const p = mock(reply as never) as ReturnType<typeof mock> & { listModels?: unknown };
+    p.listModels = async () => rows;
+    return p;
+  };
+  const row = (id: string, o: Record<string, unknown> = {}) => ({ id, context_length: 128000, architecture: { input_modalities: ['text'], output_modalities: ['text'] }, pricing: { prompt: 3e-7, completion: 6e-7 }, ...o });
+  const down = () => mock(() => fail(503));
+
+  it("drops a fallback model the provider no longer lists, using the catalogue it saved", async () => {
+    const gw = gateway([row('google/here-flash')]);
+    const ai = createLodestone({ openrouter: { apiKey: 'k', provider: down(), models }, fallbacks: [{ provider: gw, apiKey: 'g', models: ['google/gone-flash', 'google/here-flash'] }], now: () => NOW, timing: quick });
+    await ai.checkModels().catch(() => {});
+    await ai.complete({ prompt: 'x' });
+    expect(gw.calls.map((c) => c.model)).toEqual(['google/here-flash']);
+  });
+  it('fills a short list with trusted models within the price limit', async () => {
+    const gw = gateway([row('google/cheap-flash'), row('anthropic/cheap-mini', { pricing: { prompt: 4e-7, completion: 8e-7 } }), row('openai/pricey', { pricing: { prompt: 2e-5, completion: 6e-5 } }), row('shady-lab/cheap')]);
+    const ai = createLodestone({ openrouter: { apiKey: 'k', provider: down(), models }, fallbacks: [{ provider: gw, apiKey: 'g', models: ['google/gone'], discover: { fill: { maxPromptUsdPerMTok: 1, maxCompletionUsdPerMTok: 2 }, max: 2 } }], now: () => NOW, timing: quick });
+    await ai.refreshCatalog(); await ai.checkModels();
+    await ai.complete({ prompt: 'x' });
+    expect(['google/cheap-flash', 'anthropic/cheap-mini']).toContain(gw.calls[0].model);
+  });
+  it('reports, for every provider, what has gone and what is retiring', async () => {
+    const gw = gateway([row('google/here-flash'), row('google/leaving-flash', { expiration_date: '2026-10-30' })]);
+    const ai = createLodestone({ openrouter: { apiKey: 'k', provider: down(), models }, fallbacks: [{ provider: gw, apiKey: 'g', models: ['google/gone', 'google/here-flash', 'google/leaving-flash'] }], now: () => NOW,
+      fetch: (async () => new Response(JSON.stringify({ data: [{ id: 'free-a:free', context_length: 100000, expiration_date: '2026-10-30' }, { id: 'free-b:free', context_length: 100000 }] }))) as typeof fetch });
+    const r = await ai.checkModels();
+    expect(r.providers?.mock).toEqual({ models: 2, withdrawn: ['google/gone'], expiring: ['google/leaving-flash'] });
+    expect(r.expiring).toContain('free-a:free');
+  });
+  it('says so when a provider cannot list its models, and still works with the models the app named', async () => {
+    const gw = mock('from gateway') as ReturnType<typeof mock> & { listModels?: unknown };
+    gw.listModels = async () => null;
+    const ai = createLodestone({ openrouter: { apiKey: 'k', provider: down(), models }, fallbacks: [{ provider: gw, apiKey: 'g', models: ['google/x'] }], timing: quick, fetch: (async () => new Response(JSON.stringify({ data: [{ id: 'free-a:free', context_length: 100000 }] }))) as typeof fetch });
+    expect((await ai.checkModels()).providers?.mock).toMatchObject({ error: expect.stringContaining('could not read') });
+    expect((await ai.complete({ prompt: 'x' })).text).toBe('from gateway');
+  });
+});
+
+describe('private calls', () => {
+  const NOW = Date.parse('2026-10-28T12:00:00Z');
+  it('tells OpenRouter to use only providers that do not keep or train on the prompt', async () => {
+    const or = mock('ok');
+    await createLodestone({ openrouter: { apiKey: 'k', provider: or, models } }).complete({ prompt: 'my cv', private: true });
+    expect(or.calls[0].privacy).toBe('strict');
+    const normal = mock('ok');
+    await createLodestone({ openrouter: { apiKey: 'k', provider: normal, models } }).complete({ prompt: 'x' });
+    expect(normal.calls[0].privacy).toBeUndefined();
+  });
+  it("uses a fallback model only if its provider says it is not trained on, when the call is private", async () => {
+    const gw = mock('from gateway') as ReturnType<typeof mock> & { listModels?: unknown };
+    gw.listModels = async () => [
+      { id: 'google/trained-flash', data_used_for_training: true, data_retention_days: 0, context_length: 100000, pricing: { prompt: 1e-7, completion: 1e-7 } },
+      { id: 'google/unknown-flash', context_length: 100000, pricing: { prompt: 1e-7, completion: 1e-7 } },
+      { id: 'google/safe-flash', data_used_for_training: false, data_retention_days: 0, context_length: 100000, pricing: { prompt: 1e-7, completion: 1e-7 } },
+    ];
+    const ai = createLodestone({ openrouter: { apiKey: 'k', provider: mock(() => fail(503)), models }, trust: { requireNoTraining: true }, now: () => NOW, timing: quick,
+      fallbacks: [{ provider: gw, apiKey: 'g', models: ['google/trained-flash', 'google/unknown-flash', 'google/safe-flash'] }], fetch: (async () => new Response(JSON.stringify({ data: [{ id: 'free-a:free', context_length: 100000 }] }))) as typeof fetch });
+    await ai.checkModels();
+    await ai.complete({ prompt: 'my cv', private: true });
+    expect(gw.calls.map((c) => c.model)).toEqual(['google/safe-flash']);
+  });
+  it("does not count a private call's failures against a model, since few providers can meet the rule", async () => {
+    const { createHealth } = await import('./health.js');
+    const health = createHealth();
+    const ai = createLodestone({ openrouter: { apiKey: 'k', provider: mock(() => fail(404)), models }, health });
+    for (let i = 0; i < 4; i++) await ai.complete({ prompt: 'x', private: true }).catch(() => {});
+    expect(await health.snapshot()).toEqual([]);
+  });
+});
+
+describe('cancelling, and peeking', () => {
+  it('stops at once when the caller has already given up, and calls no model', async () => {
+    const or = mock('x');
+    const c = new AbortController(); c.abort();
+    await expect(createLodestone({ openrouter: { apiKey: 'k', provider: or, models } }).complete({ prompt: 'x', signal: c.signal })).rejects.toMatchObject({ kind: 'aborted' });
+    expect(or.calls).toHaveLength(0);
+  });
+  it('stops the call in flight and tries no further model when the caller gives up', async () => {
+    const c = new AbortController();
+    const or = mock((req: ProviderRequest) => new Promise((_, reject) => { req.signal.addEventListener('abort', () => reject(Object.assign(new Error('a'), { name: 'AbortError' }))); setTimeout(() => c.abort(), 20); }));
+    await expect(createLodestone({ openrouter: { apiKey: 'k', provider: or, models }, budgetMs: 5000 }).complete({ prompt: 'x', signal: c.signal })).rejects.toMatchObject({ kind: 'aborted' });
+    expect(or.calls).toHaveLength(1);
+  });
+  it('returns a saved answer without calling any model, and nothing when there is none', async () => {
+    const or = mock('first');
+    const ai = createLodestone({ openrouter: { apiKey: 'k', provider: or, models } });
+    expect(await ai.peek('job:1')).toBeNull();
+    await ai.complete({ prompt: 'x', cacheKey: 'job:1' });
+    expect(await ai.peek('job:1')).toMatchObject({ text: 'first', cached: true });
+    expect(or.calls).toHaveLength(1);
+    expect(await ai.peek('job:1', -1)).toBeNull(); // past its lifetime
+  });
+});
+
+describe('redundancy across providers', () => {
+  it('does not let free models eat the whole budget when another provider is waiting its turn (an OpenRouter outage)', async () => {
+    const hang = (req: ProviderRequest) => new Promise((_, reject) => req.signal.addEventListener('abort', () => reject(Object.assign(new Error('t'), { name: 'TimeoutError' }))));
+    const or = mock(hang as never);
+    const gw = mock('from the other provider');
+    const ai = createLodestone({
+      openrouter: { apiKey: 'k', provider: or, models, paidModels: ['paid-1'], allowPaid: true, paidFirst: true },
+      fallbacks: [{ provider: gw, apiKey: 'g', models: ['google/x'] }],
+      budgetMs: 4000, timing: { minSliceMs: 5, paidSliceMs: 100, freeSliceMs: 5000, freeSliceWithLaterMs: 100, freePhaseWithLaterMs: 300 },
+    });
+    const started = Date.now();
+    expect((await ai.complete({ prompt: 'x' })).text).toBe('from the other provider');
+    expect(Date.now() - started).toBeLessThan(2000);
+  });
+  it("does not count a free-tier provider's calls against the spend limit, or stop them when the limit is reached", async () => {
+    let asked = 0; let recorded = 0;
+    const groqLike = mock('from the free tier');
+    const ai = createLodestone({ openrouter: { apiKey: 'k', provider: mock(() => fail(503)), models }, fallbacks: [{ provider: groqLike, apiKey: 'g', models: ['llama-x'], free: true }], spend: { allow: () => { asked++; return false; }, record: () => { recorded++; } }, timing: quick });
+    expect((await ai.complete({ prompt: 'x' })).text).toBe('from the free tier');
+    expect([asked, recorded]).toEqual([0, 0]);
+  });
+  it('moves from one gateway to the next, each with its own key', async () => {
+    const a = mock(() => fail(503)); const b = mock('from b');
+    const ai = createLodestone({ openrouter: { apiKey: 'k', provider: mock(() => fail(503)), models }, fallbacks: [{ provider: a, apiKey: 'key-a', models: ['m'] }, { provider: b, apiKey: 'key-b', models: ['m'] }], timing: quick });
+    expect((await ai.complete({ prompt: 'x' })).text).toBe('from b');
+    expect([a.calls[0].apiKey, b.calls[0].apiKey]).toEqual(['key-a', 'key-b']);
   });
 });
