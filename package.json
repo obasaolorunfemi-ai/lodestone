@@ -1,6 +1,6 @@
 {
   "name": "@extrafemi-ai/lodestone",
-  "version": "0.5.1",
+  "version": "0.6.0",
   "description": "Calls AI models so your tool keeps working when a model is withdrawn, slow, rate-limited or down: failover across providers, self-updating model lists, spend limits.",
   "license": "MIT",
   "repository": {
