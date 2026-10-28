@@ -2,6 +2,13 @@
 
 Versions before 1.0 may change between minor releases; each change that could break a caller is marked **breaking**.
 
+## 0.5.1
+
+No change to the library's behaviour.
+
+- **Published with npm trusted publishing.** The release workflow no longer holds an npm token: npm trusts this repository and `release.yml` directly, so there is no secret to leak or to expire.
+- The Lodestone site, at https://lodestone.extrafemi.com, built from the real code (failure sentences from `explain()`, trust verdicts from `vet()`, the code map from `src/`) and checked in CI.
+
 ## 0.5.0
 
 Redundancy across providers, and model lists that keep themselves alive and safe.

@@ -1,12 +1,14 @@
 name: Release
 # Push a tag like v0.1.0 to publish. The tag must match the version in package.json.
+# Published with npm trusted publishing: npm trusts this repository and this workflow file (release.yml), so no token is
+# stored or passed. It needs npm 11.5.1 or newer, which Node 24 includes.
 on:
   push:
     tags: ['v*']
 
 permissions:
   contents: read
-  id-token: write   # lets npm record where the package was built (provenance)
+  id-token: write   # lets npm check which workflow this is (trusted publishing) and record where the package was built (provenance)
 
 jobs:
   publish:
@@ -15,9 +17,11 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 24
           cache: npm
           registry-url: https://registry.npmjs.org
+      - name: npm is new enough for trusted publishing
+        run: node -e "const [a,b,c]=require('child_process').execSync('npm -v').toString().trim().split('.').map(Number); if (a<11||(a===11&&(b<5||(b===5&&c<1)))) { console.error('npm '+a+'.'+b+'.'+c+' is too old for trusted publishing (needs 11.5.1)'); process.exit(1); } console.log('npm', a+'.'+b+'.'+c)"
       - run: npm ci
       - run: npm run typecheck
       - run: npm run typecheck:examples
@@ -25,6 +29,4 @@ jobs:
       - name: Tag matches package.json
         run: test "v$(node -p "require('./package.json').version")" = "${GITHUB_REF_NAME}"
       - run: npm run build
-      - run: npm publish --provenance --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      - run: npm publish --access public

@@ -21,3 +21,5 @@ jobs:
       - run: npm run typecheck:examples
       - run: npm test
       - run: npm run build
+      - name: Build the site
+        run: node site/build.mjs

@@ -1,13 +1,13 @@
 {
   "name": "@extrafemi-ai/lodestone",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "description": "Calls AI models so your tool keeps working when a model is withdrawn, slow, rate-limited or down: failover across providers, self-updating model lists, spend limits.",
   "license": "MIT",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/obasaolorunfemi-ai/lodestone.git"
   },
-  "homepage": "https://github.com/obasaolorunfemi-ai/lodestone#readme",
+  "homepage": "https://lodestone.extrafemi.com",
   "bugs": {
     "url": "https://github.com/obasaolorunfemi-ai/lodestone/issues"
   },
@@ -39,7 +39,8 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "prepublishOnly": "npm run typecheck && npm run typecheck:examples && npm test && npm run build",
-    "typecheck:examples": "tsc -p tsconfig.examples.json"
+    "typecheck:examples": "tsc -p tsconfig.examples.json",
+    "site": "npm run build && node site/build.mjs"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",
