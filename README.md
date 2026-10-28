@@ -15,7 +15,7 @@ Free and cheap models come and go. A hard-coded model id breaks without warning,
 ## Use
 
 ```ts
-import { anthropic, createLodestone, explain } from '@extrafemi/lodestone';
+import { anthropic, createLodestone, explain } from '@extrafemi-ai/lodestone';
 
 const ai = createLodestone({
   openrouter: { apiKey: process.env.OPENROUTER_API_KEY },
@@ -36,7 +36,7 @@ try {
 }
 ```
 
-`import { anthropic, google, openrouter, mock } from '@extrafemi/lodestone'` for the provider adapters.
+`import { anthropic, google, openrouter, mock } from '@extrafemi-ai/lodestone'` for the provider adapters.
 
 ### Tiers
 
