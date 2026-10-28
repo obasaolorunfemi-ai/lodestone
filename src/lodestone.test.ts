@@ -389,3 +389,33 @@ describe('stats and candidates', () => {
     expect(by).not.toHaveProperty('openrouter/free');
   });
 });
+
+describe("a caller's own key", () => {
+  it("never leads to the platform's fallback providers", async () => {
+    const platform = mock('spent the platform\'s money');
+    const ai = createLodestone({
+      openrouter: { apiKey: 'platform', provider: mock(() => fail(503)), models },
+      fallbacks: [{ provider: platform, apiKey: 'platform-anthropic-key', models: ['claude-x'] }],
+      timing: quick,
+    });
+    await expect(ai.complete({ prompt: 'x', apiKey: 'theirs' })).rejects.toMatchObject({ kind: 'unavailable' });
+    expect(platform.calls).toHaveLength(0);
+    // The same request on the platform's own key does use the fallback.
+    expect((await ai.complete({ prompt: 'x' })).text).toBe('spent the platform\'s money');
+  });
+  it('can be allowed per fallback, for a fallback that is not the platform\'s money', async () => {
+    const free = mock('ok');
+    const ai = createLodestone({ openrouter: { apiKey: 'p', provider: mock(() => fail(503)), models }, fallbacks: [{ provider: free, apiKey: 'k', models: ['m'], allowWithCallerKey: true }], timing: quick });
+    expect((await ai.complete({ prompt: 'x', apiKey: 'theirs' })).text).toBe('ok');
+  });
+  it("a rejected key is not counted against the model in live stats", async () => {
+    const { createStats } = await import('./stats.js');
+    const stats = createStats();
+    const ai = createLodestone({ openrouter: { apiKey: 'p', provider: mock(() => fail(401)), models }, stats });
+    await ai.complete({ prompt: 'x', apiKey: 'bad' }).catch(() => {});
+    expect(stats.scorecard().scores).toEqual([]);
+    const busy = createLodestone({ openrouter: { apiKey: 'p', provider: mock(() => fail(503)), models: { fast: ['only:free'], strong: ['only:free'], vision: ['only:free'] } }, stats });
+    await busy.complete({ prompt: 'x' }).catch(() => {});
+    expect(stats.scorecard().scores.find((s) => s.metric === 'success_rate')?.value).toBe(0); // a busy model still counts
+  });
+});

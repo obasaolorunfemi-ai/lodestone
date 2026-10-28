@@ -25,6 +25,8 @@ export interface FallbackConfig {
   apiKey: string;
   /** Tried in order. */
   models: string[];
+  /** Also use this provider when the caller supplied their own OpenRouter key. Default false: a fallback has the platform's key, and a caller's own key must never lead to the platform's money being spent. */
+  allowWithCallerKey?: boolean;
 }
 
 export interface AttemptEvent {
@@ -176,7 +178,7 @@ export function createLodestone(config: LodestoneConfig = {}) {
     const left = () => budget - (now() - started);
     const orKey = opts.apiKey || config.openrouter?.apiKey;
     const paidAllowed = Boolean(opts.apiKey) || Boolean(config.openrouter?.allowPaid);
-    const fbs = fallbacks.filter((f) => f.apiKey && (!images || f.provider.vision));
+    const fbs = fallbacks.filter((f) => f.apiKey && (!images || f.provider.vision) && (!opts.apiKey || f.allowWithCallerKey));
     const paidAvailable = Boolean(orKey) && paidAllowed && paidModels.length > 0;
     const later = paidAvailable || fbs.length > 0;
     const freeEnds = later ? t.freePhaseLater : budget;
@@ -204,7 +206,8 @@ export function createLodestone(config: LodestoneConfig = {}) {
         else out = { kind: 'fail', status: 599, body: (e as Error).message };
       }
       const event: AttemptEvent = { provider: provider.name, model, phase, outcome: out.kind === 'ok' ? 'ok' : out.kind === 'timeout' ? 'timeout' : 'failed', status: out.kind === 'fail' ? out.status : undefined, ms: now() - at };
-      config.stats?.record(event);
+      // A key or credit problem (401, 402, 403) says nothing about the model, so it is not counted against it.
+      if (!(out.kind === 'fail' && [401, 402, 403].includes(out.status))) config.stats?.record(event);
       config.onAttempt?.(event);
       last = out;
       return out;

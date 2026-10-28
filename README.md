@@ -60,6 +60,10 @@ A step with no key is skipped. A route skips the model lists and the catalogue, 
 
 Keep a customer's own key out of any fallback step: build the route from their key only.
 
+### Your own key
+
+Pass the customer's OpenRouter key as `apiKey` on a call. It replaces the platform's key, allows the paid fallback, and is never stored. The platform's `fallbacks` are **not** used on a call with a customer's own key (they carry the platform's money), unless a fallback sets `allowWithCallerKey`. Attempts that fail with 401, 402 or 403 are not counted in live stats, because they say nothing about the model.
+
 ### Phases
 
 For each call, in order, until one answers:
