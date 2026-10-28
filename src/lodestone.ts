@@ -109,6 +109,11 @@ export interface RouteStep {
   timeoutMs?: number;
 }
 
+/** What `json({ schema })` needs from a schema: Zod, Valibot (via its adapter) and ArkType-style libraries have it. */
+export interface SafeParser<T> {
+  safeParse(value: unknown): { success: true; data: T } | { success: false };
+}
+
 export interface CompleteOptions {
   /** Skip tiers and phases: try exactly these steps, in order, until one answers. For callers that choose their own provider and model per request. Temperature is left to the provider unless set. */
   route?: RouteStep[];
@@ -445,16 +450,25 @@ export function createLodestone(config: LodestoneConfig = {}) {
     return new LodestoneError(kind, { status, rateLimit, ownKey, needsCredit, providerMessage: failure?.message });
   }
 
-  /** Like complete(), but the answer must be JSON (and pass `validate`, if given). A model whose answer isn't is skipped for the next. */
-  async function json<T = unknown>(opts: CompleteOptions & { validate?: (value: unknown) => value is T }): Promise<CompleteResult & { data: T }> {
-    const ok = (text: string) => {
+  /** Like complete(), but the answer must be JSON, and pass `validate` or `schema` if given. A model whose answer
+   *  isn't is skipped for the next. `schema` is anything with a `safeParse` method, such as a Zod schema; `data`
+   *  is then what the schema returns, so its defaults and transforms apply. */
+  async function json<T = unknown>(opts: CompleteOptions & { validate?: (value: unknown) => value is T; schema?: SafeParser<T> }): Promise<CompleteResult & { data: T }> {
+    const parse = (text: string): { ok: true; data: T } | { ok: false } => {
       const v = tryParseJson(text);
-      return v !== undefined && (!opts.validate || opts.validate(v));
+      if (v === undefined) return { ok: false };
+      if (opts.validate && !opts.validate(v)) return { ok: false };
+      if (opts.schema) {
+        const r = opts.schema.safeParse(v);
+        return r.success ? { ok: true, data: r.data } : { ok: false };
+      }
+      return { ok: true, data: v as T };
     };
-    const { validate: _v, ...rest } = opts;
-    const accept = opts.accept ? (s: string) => ok(s) && opts.accept!(s) : ok;
+    const { validate: _v, schema: _s, ...rest } = opts;
+    const accept = opts.accept ? (s: string) => parse(s).ok && opts.accept!(s) : (s: string) => parse(s).ok;
     const result = await complete({ ...rest, accept });
-    return { ...result, data: tryParseJson<T>(result.text) as T };
+    const done = parse(result.text);
+    return { ...result, data: (done.ok ? done.data : tryParseJson<T>(result.text)) as T };
   }
 
   /** Fetches and saves OpenRouter's current catalogue. Run it daily. */

@@ -38,6 +38,13 @@ try {
 }
 ```
 
+`validate` is a type guard you write. Or pass a schema, anything with `safeParse` (Zod, for example), and `data` is what it returns:
+
+```ts
+const Job = z.object({ title: z.string(), remote: z.boolean().default(false) });
+const { data } = await ai.json({ task: 'extract-job', prompt, schema: Job }); // data: { title: string; remote: boolean }
+```
+
 `import { anthropic, google, openrouter, mock } from '@extrafemi-ai/lodestone'` for the provider adapters.
 
 ### Tiers

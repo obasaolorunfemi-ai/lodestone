@@ -217,6 +217,12 @@ describe('json', () => {
     const r = await ai(['{"b":1}', '{"a":3}']).json({ prompt: 'x', validate: isA });
     expect(r.data.a).toBe(3);
   });
+  it('accepts any schema with safeParse, skips answers it rejects, and returns what it parses', async () => {
+    const schema = { safeParse: (v: unknown) => (typeof (v as { n?: unknown })?.n === 'string' ? { success: true as const, data: { n: Number((v as { n: string }).n) } } : { success: false as const }) };
+    const r = await ai(['{"n":5}', '{"n":"7"}']).json({ prompt: 'x', schema });
+    expect(r.data).toEqual({ n: 7 });
+    expect(r.model).toBe('free-b:free');
+  });
   it('gives bad_output when no model produces usable JSON', async () => {
     await expect(ai(['no', 'no', 'no']).json({ prompt: 'x' })).rejects.toMatchObject({ kind: 'bad_output' });
   });
