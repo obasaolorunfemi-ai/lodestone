@@ -29,7 +29,7 @@ export function openrouter(opts: OpenRouterOptions = {}): Provider {
         },
         body: JSON.stringify({
           model: req.model,
-          temperature: req.temperature,
+          ...(req.temperature === undefined ? {} : { temperature: req.temperature }),
           max_tokens: req.maxTokens,
           ...(opts.lowReasoning === false ? {} : { reasoning: { effort: 'low', exclude: true } }),
           messages: [...(req.system ? [{ role: 'system', content: req.system }] : []), ...req.messages.map(wire)],

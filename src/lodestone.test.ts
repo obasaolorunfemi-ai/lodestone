@@ -247,3 +247,65 @@ describe('cache', () => {
     expect((await ai2.complete({ prompt: 'x', cacheKey: 'f' })).cached).toBeUndefined();
   });
 });
+
+describe('route: an explicit provider and model', () => {
+  const route = (...steps: { provider: string; model: string; apiKey: string }[]) => steps;
+
+  it('calls exactly the named provider and model with its key, and leaves temperature to the provider', async () => {
+    const a = mock('from a');
+    const ai = createLodestone({ providers: { a } });
+    const r = await ai.complete({ prompt: 'x', system: 'sys', maxTokens: 900, route: route({ provider: 'a', model: 'm1', apiKey: 'key-a' }) });
+    expect(r).toMatchObject({ text: 'from a', provider: 'mock', model: 'm1' });
+    expect(a.calls[0]).toMatchObject({ model: 'm1', apiKey: 'key-a', system: 'sys', maxTokens: 900 });
+    expect(a.calls[0].temperature).toBeUndefined();
+  });
+  it('uses a temperature when one is given', async () => {
+    const a = mock();
+    await createLodestone({ providers: { a } }).complete({ prompt: 'x', temperature: 0.4, route: route({ provider: 'a', model: 'm', apiKey: 'k' }) });
+    expect(a.calls[0].temperature).toBe(0.4);
+  });
+  it('moves to the next step when one fails, and never touches the tier lists or the catalogue', async () => {
+    const a = mock(() => fail(503));
+    const b = mock('from b');
+    let catalogCalls = 0;
+    const ai = createLodestone({ providers: { a, b }, fetch: (async () => { catalogCalls++; return new Response('{}'); }) as typeof fetch });
+    const r = await ai.complete({ prompt: 'x', route: route({ provider: 'a', model: 'm1', apiKey: 'ka' }, { provider: 'b', model: 'm2', apiKey: 'kb' }) });
+    expect(r.text).toBe('from b');
+    expect(catalogCalls).toBe(0);
+  });
+  it('skips a step with no key, so a missing fallback key is not an error', async () => {
+    const a = mock('only a');
+    const b = mock('b');
+    const r = await createLodestone({ providers: { a, b } }).complete({ prompt: 'x', route: route({ provider: 'a', model: 'm', apiKey: 'ka' }, { provider: 'b', model: 'm', apiKey: '' }) });
+    expect(r.text).toBe('only a');
+    expect(b.calls).toHaveLength(0);
+  });
+  it('reports why the first step failed, and passes on the provider\'s own message', async () => {
+    const a = mock(() => fail(400, JSON.stringify({ error: { message: 'max_tokens too large' } })));
+    const b = mock(() => fail(503));
+    const err = await createLodestone({ providers: { a, b } }).complete({ prompt: 'x', route: route({ provider: 'a', model: 'm', apiKey: 'ka' }, { provider: 'b', model: 'm', apiKey: 'kb' }) }).catch((e) => e);
+    expect(err).toMatchObject({ kind: 'other', detail: { status: 400, providerMessage: 'max_tokens too large' } });
+  });
+  it('says the AI is slow when the route timed out, and not_configured when no step has a key', async () => {
+    const slow = mock((req: ProviderRequest) => new Promise((_, reject) => req.signal.addEventListener('abort', () => reject(Object.assign(new Error('t'), { name: 'TimeoutError' })))));
+    await expect(createLodestone({ providers: { slow }, budgetMs: 100 }).complete({ prompt: 'x', route: route({ provider: 'slow', model: 'm', apiKey: 'k' }) })).rejects.toMatchObject({ kind: 'slow' });
+    await expect(createLodestone({ providers: { a: mock() } }).complete({ prompt: 'x', route: route({ provider: 'a', model: 'm', apiKey: '' }) })).rejects.toMatchObject({ kind: 'not_configured' });
+  });
+  it('rejects a route that names a provider that is not registered', async () => {
+    await expect(createLodestone().complete({ prompt: 'x', route: route({ provider: 'nope', model: 'm', apiKey: 'k' }) })).rejects.toThrow('Unknown provider "nope"');
+  });
+  it('has openrouter, anthropic and google ready without being registered', async () => {
+    const seen: string[] = [];
+    const ai = createLodestone({ fetch: (async (url: string | URL | Request) => { seen.push(String(url)); return new Response('{}', { status: 500 }); }) as typeof fetch });
+    for (const provider of ['openrouter', 'anthropic', 'google']) await ai.complete({ prompt: 'x', route: route({ provider, model: 'm', apiKey: 'k' }) }).catch(() => {});
+    expect(seen.map((u) => new URL(u).hostname)).toEqual(['openrouter.ai', 'api.anthropic.com', 'generativelanguage.googleapis.com']);
+  });
+  it('lets one provider be replaced, for example OpenRouter without low reasoning', async () => {
+    const sent: unknown[] = [];
+    const { openrouter } = await import('./providers/openrouter.js');
+    const f = (async (_u: unknown, init: RequestInit) => { sent.push(JSON.parse(String(init.body))); return new Response(JSON.stringify({ choices: [{ message: { content: 'hi' } }] })); }) as typeof fetch;
+    await createLodestone({ providers: { openrouter: openrouter({ fetch: f, lowReasoning: false }) } }).complete({ prompt: 'x', route: route({ provider: 'openrouter', model: 'anthropic/claude-x', apiKey: 'k' }) });
+    expect(sent[0]).not.toHaveProperty('reasoning');
+    expect(sent[0]).not.toHaveProperty('temperature');
+  });
+});

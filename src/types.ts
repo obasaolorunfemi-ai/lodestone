@@ -18,7 +18,8 @@ export interface ProviderRequest {
   system?: string;
   messages: Message[];
   maxTokens: number;
-  temperature: number;
+  /** Left out when the caller did not set one, so the provider's own default applies. */
+  temperature?: number;
   apiKey: string;
   signal: AbortSignal;
 }
