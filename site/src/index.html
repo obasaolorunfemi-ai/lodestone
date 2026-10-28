@@ -1,12 +1,12 @@
 <!doctype html>
-<html lang="en" class="js-off">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Lodestone: AI calls that keep working</title>
 <meta name="description" content="Lodestone is a small TypeScript library that keeps AI calls working when a model is withdrawn, slow, rate-limited or down: failover across providers, self-updating model lists, spend limits. No dependencies. MIT.">
-<meta name="theme-color" content="#f4efe4" media="(prefers-color-scheme: light)">
-<meta name="theme-color" content="#161b22" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#fdfcf9" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#12110e" media="(prefers-color-scheme: dark)">
 <link rel="canonical" href="https://lodestone.extrafemi.com/">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://lodestone.extrafemi.com/">
@@ -15,163 +15,200 @@
 <meta property="og:description" content="Failover across AI providers, model lists that keep themselves alive and safe, and spend limits. A small TypeScript library with no dependencies.">
 <meta name="twitter:card" content="summary">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="preload" href="/fonts/cardo-400-latin.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="/fonts/lora-400-latin.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="/fonts/fonts.css">
 <link rel="stylesheet" href="/style.css?v={{v}}">
+<script src="/theme.js?v={{v}}"></script>
 <script type="application/json" id="data">{{data}}</script>
 <script src="/app.js?v={{v}}" defer></script>
 </head>
 <body>
-<a class="skip-link" href="#main">Skip to content</a>
+<a class="skip" href="#main">Skip to content</a>
 
-<header>
-  <div class="wrap">
-    <svg class="compass" viewBox="0 0 300 300" aria-hidden="true">
-      <circle class="ring" cx="150" cy="150" r="120"/><circle class="ring2" cx="150" cy="150" r="100"/>
-      <text x="150" y="44">FREE</text><text x="264" y="154">PAID</text><text x="150" y="266">FALLBACK</text><text x="36" y="154">ROUTE</text>
-      <g class="needle"><polygon class="n1" points="150,60 160,150 140,150"/><polygon class="n2" points="150,240 160,150 140,150"/><circle class="hub" cx="150" cy="150" r="6"/></g>
-    </svg>
-    <span class="kicker">extrafemi-ai / lodestone · v{{version}}</span>
-    <h1>Lodestone keeps<br>your AI calls <em>pointing<br>somewhere that works.</em></h1>
-    <p class="lede">A small TypeScript library that sits between your tool and AI models. When a model is withdrawn, slow, rate-limited or down, it moves to the next one, stays inside your time limit, spends only what you allow, and, if everything fails, tells the person what went wrong in plain words.</p>
-    <div class="meta"><span><b>Language</b> TypeScript</span><span><b>Runtime</b> plain fetch; tested on Node 20 and 22</span><span><b>Dependencies</b> none</span><span><b>Licence</b> MIT</span></div>
-    <code class="install">npm install @extrafemi-ai/lodestone</code>
-    <div class="links"><a href="https://github.com/obasaolorunfemi-ai/lodestone">GitHub</a><a href="https://www.npmjs.com/package/@extrafemi-ai/lodestone">npm</a><a href="https://github.com/obasaolorunfemi-ai/lodestone/blob/main/CHANGELOG.md">Changelog</a><a href="https://github.com/obasaolorunfemi-ai/lodestone/blob/main/SECURITY.md">Security</a></div>
+<div class="ticker tag" aria-hidden="true"><div class="ticker-track">{{ticker}}{{ticker}}</div></div>
+
+<header class="sitebar">
+  <div class="col sitebar-in">
+    <a class="brand" href="/">Lodestone</a>
+    <nav class="sections" aria-label="Sections">
+      <a href="#problem">Problem</a><a href="#watch">Watch a call</a><a href="#measured">Measured</a><a href="#providers">Providers</a><a href="#safety">Safety</a><a href="#failures">Failures</a><a href="#scorecards">Scorecards</a><a href="#using">Using it</a><a href="#limits">Limits</a><a href="#code">Code</a>
+    </nav>
+    <button type="button" class="icon-btn" id="theme" aria-label="Switch to dark mode">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+    </button>
   </div>
+  <div class="progress" aria-hidden="true"><span id="progress"></span></div>
 </header>
 
-<main id="main">
-
-<section class="reveal">
-  <div class="wrap">
-    <span class="num">01 · The problem</span>
-    <h2>Six ways a cheap AI call breaks</h2>
-    <p class="sub">Free and low-cost models come and go, and gateways have bad days. Every tool that calls them ends up rewriting the same defensive code. Lodestone does it once, for all your tools.</p>
-    <div class="probs">
-      <div class="prob"><h3>The model disappears</h3><p>A hard-coded model id stops working without warning when the provider withdraws it.</p><div class="fix"><b>Fix</b>Your list is a preference, checked against the provider's live catalogue. Gone or retiring models are dropped and replaced.</div></div>
-      <div class="prob"><h3>One model eats the clock</h3><p>A single slow model uses the whole serverless time limit and the person sees an unreadable gateway error.</p><div class="fix"><b>Fix</b>Each attempt gets a slice of a 24 s budget (under a 30 s gateway). A slow model is cut off and the next one tried.</div></div>
-      <div class="prob"><h3>"429" means four things</h3><p>Daily limit, per-minute limit, busy upstream, or no credit. Each needs a different message to the person.</p><div class="fix"><b>Fix</b>Failures become typed errors, and <code>explain()</code> turns each into advice a person can act on.</div></div>
-      <div class="prob"><h3>The provider itself is down</h3><p>One gateway's outage takes every model behind it, and every tool that depends on it.</p><div class="fix"><b>Fix</b>Fallback providers, each with its own key: Requesty, LLM API, Groq and others. An outage cannot use up the whole time budget before they get a turn.</div></div>
-      <div class="prob"><h3>The same dead model, every time</h3><p>Free models fail in bursts, and without memory every request pays to find out again.</p><div class="fix"><b>Fix</b>A circuit breaker, shared across functions, skips a model that keeps failing and lets one attempt through every two minutes to see if it is back.</div></div>
-      <div class="prob"><h3>"Free" is not free if it hangs</h3><p>A paid fallback with no limit is risky on a public tool, and free models that never answer cost your users time.</p><div class="fix"><b>Fix</b>Paid-first on your own key, free as the backup, and a spend hook that stops paid calls at a daily or monthly limit.</div></div>
-    </div>
-  </div>
-</section>
-
-<section class="reveal">
-  <div class="wrap">
-    <span class="num">02 · Watch a call</span>
-    <h2>Pick a bad day and see what Lodestone does</h2>
-    <p class="sub">A call runs through up to three phases until one answers: OpenRouter's free models, a low-cost paid model, then your fallback providers. These are the real rules; the timings and model names are illustrative, except where a scenario says it was measured.</p>
-    <div class="sim">
-      <div class="scen" id="scen" role="group" aria-label="Scenarios"></div>
-      <div class="board">
-        <div class="board-top"><h3 id="stitle"></h3><span class="clock" id="clock" aria-live="off">0.0 s</span></div>
-        <div class="call" id="scall"></div>
-        <div class="cfg" id="scfg"></div>
-        <div class="lane"><div class="lab"></div><div class="track scale" id="scale"></div></div>
-        <div class="lanes" id="lanes"></div>
-        <div class="legend"><span><i style="background:var(--green)"></i>answered</span><span><i style="background:var(--amber-soft);border:1px solid var(--amber)"></i>too slow, cut off</span><span><i style="background:var(--red-soft);border:1px solid var(--red)"></i>refused or errored</span><span><i style="background:var(--blue-soft);border:1px solid var(--blue)"></i>answer failed the check</span></div>
-        <div class="log" id="log" aria-live="polite"></div>
-        <div class="result" id="result" role="status"></div>
-        <div style="margin-top:12px;text-align:right"><button type="button" class="replay" id="replay">↻ replay</button></div>
+<div id="main" tabindex="-1">
+<div class="cover col">
+  <div class="stage">
+    <div class="cover-main">
+      <h1>Lodestone</h1>
+      <p class="lede">A small TypeScript library that sits between your tool and AI models. When a model is withdrawn, slow, rate-limited or down, it moves to the next one, stays inside your time limit, spends only what you allow, and, if everything fails, tells the person what went wrong in plain words.</p>
+      <code class="install">npm install @extrafemi-ai/lodestone</code>
+      <div class="actions">
+        <a class="pill solid" href="#watch">Watch a bad day
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M6 13l6 6 6-6"/></svg></a>
+        <a class="pill" href="https://github.com/obasaolorunfemi-ai/lodestone">GitHub</a>
+        <a class="pill" href="https://www.npmjs.com/package/@extrafemi-ai/lodestone">npm</a>
       </div>
+      <p class="tag facts"><span>v{{version}}</span><span>TypeScript</span><span>No dependencies</span><span>MIT</span><span>Node 20 and 22</span></p>
+    </div>
+    <figure class="ghost" aria-hidden="true">
+      <svg viewBox="-34 0 368 300">
+        <circle class="ring" cx="150" cy="150" r="120"/><circle class="ring2" cx="150" cy="150" r="100"/>
+        <text x="150" y="22">FREE</text><text x="306" y="154">PAID</text><text x="150" y="288">FALLBACK</text><text x="-6" y="154">ROUTE</text>
+        <g class="needle"><polygon class="n1" points="150,60 160,150 140,150"/><polygon class="n2" points="150,240 160,150 140,150"/><circle class="hub" cx="150" cy="150" r="6"/></g>
+      </svg>
+      <figcaption class="tag">Always pointing at a model that works</figcaption>
+    </figure>
+  </div>
+  <nav class="index" aria-label="Chapters">
+    <a href="#problem"><h3>Six ways a cheap AI call breaks</h3><p>And what Lodestone does about each.</p><div class="foot"><b>6</b><span class="tag">failure modes</span></div></a>
+    <a href="#watch"><h3>Pick a bad day</h3><p>Run a call through the real rules and watch it recover.</p><div class="foot"><b>12</b><span class="tag">scenarios</span></div></a>
+    <a href="#measured"><h3>What one bad day looked like</h3><p>Measured on 28 October 2026, with the mistakes left in.</p><div class="foot"><b>1 in 15</b><span class="tag">free answers usable</span></div></a>
+    <a href="#using"><h3>What a tool writes</h3><p>One setup, then each call names a task, not a model.</p><div class="foot"><b>0</b><span class="tag">dependencies</span></div></a>
+  </nav>
+</div>
+
+<main class="col">
+
+<section id="problem" aria-labelledby="problem-h">
+  <div class="divider"><span class="tag">The problem</span><span class="tag">6 ways a call breaks</span></div>
+  <div class="head">
+    <h2 id="problem-h">Six ways a cheap AI call breaks</h2>
+    <p>Free and low-cost models come and go, and gateways have bad days. Every tool that calls them ends up rewriting the same defensive code. Lodestone does it once, for all your tools.</p>
+  </div>
+  <ol class="ledger rise">
+    <li><h3>The model disappears</h3><div class="what"><p>A hard-coded model id stops working without warning when the provider withdraws it.</p></div><p class="fix"><b>Fix</b>Your list is a preference, checked against the provider's live catalogue. Gone or retiring models are dropped and replaced.</p></li>
+    <li><h3>One model eats the clock</h3><div class="what"><p>A single slow model uses the whole serverless time limit and the person sees an unreadable gateway error.</p></div><p class="fix"><b>Fix</b>Each attempt gets a slice of a 24 s budget (under a 30 s gateway). A slow model is cut off and the next one tried.</p></li>
+    <li><h3>"429" means four things</h3><div class="what"><p>Daily limit, per-minute limit, busy upstream, or no credit. Each needs a different message to the person.</p></div><p class="fix"><b>Fix</b>Failures become typed errors, and <code>explain()</code> turns each into advice a person can act on.</p></li>
+    <li><h3>The provider itself is down</h3><div class="what"><p>One gateway's outage takes every model behind it, and every tool that depends on it.</p></div><p class="fix"><b>Fix</b>Fallback providers, each with its own key: Requesty, LLM API, Groq and others. An outage cannot use up the whole time budget before they get a turn.</p></li>
+    <li><h3>The same dead model, every time</h3><div class="what"><p>Free models fail in bursts, and without memory every request pays to find out again.</p></div><p class="fix"><b>Fix</b>A circuit breaker, shared across functions, skips a model that keeps failing and lets one attempt through every two minutes to see if it is back.</p></li>
+    <li><h3>"Free" is not free if it hangs</h3><div class="what"><p>A paid fallback with no limit is risky on a public tool, and free models that never answer cost your users time.</p></div><p class="fix"><b>Fix</b>Paid-first on your own key, free as the backup, and a spend hook that stops paid calls at a daily or monthly limit.</p></li>
+  </ol>
+</section>
+
+<section id="watch" aria-labelledby="watch-h">
+  <div class="divider"><span class="tag">Watch a call</span><span class="tag">12 scenarios · real rules</span></div>
+  <div class="head">
+    <h2 id="watch-h">Pick a bad day and see what Lodestone does</h2>
+    <p>A call runs through up to three phases until one answers: OpenRouter's free models, a low-cost paid model, then your fallback providers. These are the real rules; the timings and model names are illustrative, except where a scenario says it was measured.</p>
+  </div>
+  <div class="sim">
+    <div class="scen" id="scen" role="group" aria-label="Scenarios"></div>
+    <div class="board">
+      <div class="board-top"><h3 id="stitle"></h3><span class="clock" id="clock" aria-live="off">0.0 s</span></div>
+      <div class="call" id="scall"></div>
+      <div class="cfg" id="scfg"></div>
+      <div class="lane"><div class="lab"></div><div class="track scale" id="scale"></div></div>
+      <div class="lanes" id="lanes"></div>
+      <div class="legend"><span><i style="background:var(--good)"></i>answered</span><span><i style="background:var(--warn-wash);border:1px solid var(--warn)"></i>too slow, cut off</span><span><i style="background:var(--bad-wash);border:1px solid var(--bad)"></i>refused or errored</span><span><i style="background:var(--info-wash);border:1px solid var(--info)"></i>answer failed the check</span></div>
+      <div class="log" id="log" aria-live="polite"></div>
+      <div class="result" id="result" role="status"></div>
+      <div class="replay-row"><button type="button" class="replay" id="replay">↻ Replay</button></div>
     </div>
   </div>
 </section>
 
-<section class="reveal">
-  <div class="wrap">
-    <span class="num">03 · Measured, not assumed</span>
-    <h2>What one bad day looked like</h2>
-    <p class="sub">On 28 October 2026 the free OpenRouter models behind a real tool stopped answering, and scoring a job posting ran its whole 24 s budget and failed. These are the measurements that changed how Lodestone's defaults work. One day, one posting and one CV, so read them as an example, not a benchmark.</p>
-    <div class="three">
-      <div class="card"><span class="k">Free models</span><h3>1 usable answer in 15 attempts</h3><p>Three attempts each on five free models. Two were rate-limited every time (429), two held the connection open for 45 s and never answered, and the router once chose a safety classifier that replied "User Safety: safe". The one good answer took 25 s.</p></div>
-      <div class="card"><span class="k">Paid models</span><h3>About 3 s, for under a tenth of a cent</h3><p>Reading a posting: <code>claude-haiku-5.5</code> took 3.0–3.2 s in all three runs for $0.0004. Scoring took about 5 s. Gemini was 5–6 s; Mistral Small was erratic (7–9 s, and one rate limit).</p></div>
-      <div class="card"><span class="k">A mistake worth owning</span><h3>Time until the whole answer</h3><p>My first speed table timed only until the response <em>headers</em> arrived, which made every model look much faster. OpenRouter sends headers early and the body follows seconds later. Lodestone's own tests and tools now time the full body.</p></div>
-    </div>
-    <div class="tablewrap"><table>
-      <thead><tr><th>Scoring a CV against a posting</th><th class="num2">Time</th><th class="num2">Cost</th><th>Note</th></tr></thead>
-      <tbody>
-        <tr><td><code>claude-haiku-5.5</code>, reasoning left on</td><td class="num2">10 s</td><td class="num2">$0.0012</td><td>Spent about 1,000 tokens thinking, even when asked for "low"</td></tr>
-        <tr><td><code>claude-haiku-5.5</code>, reasoning off</td><td class="num2"><b>5 s</b></td><td class="num2">$0.0006</td><td>Same answers on both runs, so half the time and half the cost</td></tr>
-        <tr><td><code>gemini-3.8-flash</code></td><td class="num2">5–6 s</td><td class="num2">$0.003</td><td>Refuses to run with reasoning off ("mandatory for this endpoint")</td></tr>
-        <tr><td><code>qwen3.7-flash</code></td><td class="num2">n/a</td><td class="num2">n/a</td><td>Spent all 3,500 tokens thinking and returned nothing</td></tr>
-      </tbody>
-    </table></div>
-    <p class="cap">So reasoning is set per model (<code>openrouter({ reasoning })</code>), a paid-first mode exists (<code>paidFirst</code>), and the free models become the backup. The result for that tool: reading a posting in 2.6–3.1 s and scoring in 4.5–4.9 s, instead of failing after 24 s.</p>
+<section id="measured" aria-labelledby="measured-h">
+  <div class="divider"><span class="tag">Measured, not assumed</span><span class="tag">28 October 2026</span></div>
+  <div class="head">
+    <h2 id="measured-h">What one bad day looked like</h2>
+    <p>On 28 October 2026 the free OpenRouter models behind a real tool stopped answering, and scoring a job posting ran its whole 24 s budget and failed. These are the measurements that changed how Lodestone's defaults work. One day, one posting and one CV, so read them as an example, not a benchmark.</p>
   </div>
+  <div class="three rise">
+    <div class="card"><span class="tag">Free models</span><h3>1 usable answer in 15 attempts</h3><p>Three attempts each on five free models. Two were rate-limited every time (429), two held the connection open for 45 s and never answered, and the router once chose a safety classifier that replied "User Safety: safe". The one good answer took 25 s.</p></div>
+    <div class="card"><span class="tag">Paid models</span><h3>About 3 s, for under a tenth of a cent</h3><p>Reading a posting: <code>claude-haiku-5.5</code> took 3.0–3.2 s in all three runs for $0.0004. Scoring took about 5 s. Gemini was 5–6 s; Mistral Small was erratic (7–9 s, and one rate limit).</p></div>
+    <div class="card"><span class="tag">A mistake worth owning</span><h3>Time until the whole answer</h3><p>My first speed table timed only until the response <em>headers</em> arrived, which made every model look much faster. OpenRouter sends headers early and the body follows seconds later. Lodestone's own tests and tools now time the full body.</p></div>
+  </div>
+  <div class="tablewrap"><table>
+    <thead><tr><th>Scoring a CV against a posting</th><th class="num2">Time</th><th class="num2">Cost</th><th>Note</th></tr></thead>
+    <tbody>
+      <tr><td><code>claude-haiku-5.5</code>, reasoning left on</td><td class="num2">10 s</td><td class="num2">$0.0012</td><td>Spent about 1,000 tokens thinking, even when asked for "low"</td></tr>
+      <tr><td><code>claude-haiku-5.5</code>, reasoning off</td><td class="num2"><b>5 s</b></td><td class="num2">$0.0006</td><td>Same answers on both runs, so half the time and half the cost</td></tr>
+      <tr><td><code>gemini-3.8-flash</code></td><td class="num2">5–6 s</td><td class="num2">$0.003</td><td>Refuses to run with reasoning off ("mandatory for this endpoint")</td></tr>
+      <tr><td><code>qwen3.7-flash</code></td><td class="num2">n/a</td><td class="num2">n/a</td><td>Spent all 3,500 tokens thinking and returned nothing</td></tr>
+    </tbody>
+  </table></div>
+  <p class="cap">So reasoning is set per model (<code>openrouter({ reasoning })</code>), a paid-first mode exists (<code>paidFirst</code>), and the free models become the backup. The result for that tool: reading a posting in 2.6–3.1 s and scoring in 4.5–4.9 s, instead of failing after 24 s.</p>
 </section>
 
-<section class="reveal">
-  <div class="wrap">
-    <span class="num">04 · Not depending on one provider</span>
-    <h2>Other providers, each with its own key</h2>
-    <p class="sub">Any service that speaks OpenAI's chat API works through <code>openaiCompatible()</code>, and presets exist for the ones Lodestone has been checked against. Here is exactly how far each check went.</p>
-    <div class="tablewrap"><table>
-      <thead><tr><th>Preset</th><th>Service</th><th>What was checked</th></tr></thead>
-      <tbody>{{providers}}</tbody>
-    </table></div>
-    <p class="cap">"Model list read" means Lodestone's reader was run against the service's real public list and parsed it correctly. No chat call was made to a service without a key, so those paths are tested against fakes of the documented request, not against the service itself. Requesty and LLM API have no free models; they add redundancy on the paid path. Free redundancy comes from providers with free tiers, such as Groq and Cerebras, whose terms Lodestone has not checked.</p>
+<section id="providers" aria-labelledby="providers-h">
+  <div class="divider"><span class="tag">Not depending on one provider</span><span class="tag">Each with its own key</span></div>
+  <div class="head">
+    <h2 id="providers-h">Other providers, and how far each was checked</h2>
+    <p>Any service that speaks OpenAI's chat API works through <code>openaiCompatible()</code>, and presets exist for the ones Lodestone has been checked against. Here is exactly how far each check went.</p>
   </div>
+  <div class="tablewrap"><table>
+    <thead><tr><th>Preset</th><th>Service</th><th>What was checked</th></tr></thead>
+    <tbody>{{providers}}</tbody>
+  </table></div>
+  <p class="cap">"Model list read" means Lodestone's reader was run against the service's real public list and parsed it correctly. No chat call was made to a service without a key, so those paths are tested against fakes of the documented request, not against the service itself. Requesty and LLM API have no free models; they add redundancy on the paid path. Free redundancy comes from providers with free tiers, such as Groq and Cerebras, whose terms Lodestone has not checked.</p>
 </section>
 
-<section class="reveal">
-  <div class="wrap">
-    <span class="num">05 · Lists that keep themselves alive, short and safe</span>
-    <h2>Discovery that never makes a request slower</h2>
-    <p class="sub">A model list that nobody edits goes stale; one that fills itself can grow until it is slow, or admit something you would not choose. Lodestone does the first and bounds the second.</p>
-    <div class="three">
-      <div class="card"><span class="k">Alive</span><h3>Outdated models drop out</h3><p>A daily <code>checkModels()</code> saves each provider's catalogue. A model it no longer lists is dropped. One with an expiry date within a week is left out (OpenRouter publishes the date; 14 models carried one the day this was written). One failing right now is skipped by the breaker.</p></div>
-      <div class="card"><span class="k">Short</span><h3>A pool of 8, three tried</h3><p>The ranked pool lives in the background. Models that are down are filtered out, and a request tries at most three. When one fails, the next best takes its place for later requests, so adding models adds choice, not delay.</p></div>
-      <div class="card"><span class="k">Safe</span><h3>Trust is checked, not assumed</h3><p>A discovered model must come from a trusted lab. You can block labs or models, refuse any a provider says is trained on or keeps prompts too long, and mark a single call <code>private</code>.</p></div>
-    </div>
-    <div class="pool" aria-label="Example pool"><span class="down">gemma-4-26b (429)</span><span class="down">nemotron-lightning (hung)</span><span class="live">nemotron-ultra</span><span class="live">gemma-4-31b</span><span class="live">qwen3.5-flash</span><span>mistral-small</span><span>deepseek-v4</span><span>phi-5-mini</span></div>
-    <p class="cap">Illustrative: a pool of eight. The two that are down are skipped; the next three live ones are tried.</p>
-    <h3 style="margin-top:28px;font-size:20px">What the trust policy decides</h3>
-    <div class="tablewrap"><table>
-      <thead><tr><th>Model found by discovery</th><th>Default policy</th><th>Strict: no training, prompts kept ≤ 30 days</th></tr></thead>
-      <tbody>{{vet}}</tbody>
-    </table></div>
-    <p class="cap">Verdicts are computed by the library's own <code>vet()</code> as this page is built, on rows shaped like real lists. On 28 Oct 2026, of Requesty's 807 chat models, 205 came from a lab not on the default list and 9 were marked as trained on. LLM API publishes nothing about what happens to prompts, so under a strict policy none of its models can be <em>discovered</em>; models you name yourself still work.</p>
-    <p class="note"><b>What this is not.</b> There is no vulnerability database for hosted AI models, so Lodestone does not claim to scan one. It checks what providers actually publish, and enforces your rules on it. Those facts are self-reported by providers. <a href="https://github.com/obasaolorunfemi-ai/lodestone/blob/main/SECURITY.md">SECURITY.md</a> lists exactly what is and is not checked.</p>
+<section id="safety" aria-labelledby="safety-h">
+  <div class="divider"><span class="tag">Lists that keep themselves alive</span><span class="tag">Short and safe</span></div>
+  <div class="head">
+    <h2 id="safety-h">Discovery that never makes a request slower</h2>
+    <p>A model list that nobody edits goes stale; one that fills itself can grow until it is slow, or admit something you would not choose. Lodestone does the first and bounds the second.</p>
   </div>
+  <div class="three rise">
+    <div class="card"><span class="tag">Alive</span><h3>Outdated models drop out</h3><p>A daily <code>checkModels()</code> saves each provider's catalogue. A model it no longer lists is dropped. One with an expiry date within a week is left out (OpenRouter publishes the date; 14 models carried one the day this was written). One failing right now is skipped by the breaker.</p></div>
+    <div class="card"><span class="tag">Short</span><h3>A pool of 8, three tried</h3><p>The ranked pool lives in the background. Models that are down are filtered out, and a request tries at most three. When one fails, the next best takes its place for later requests, so adding models adds choice, not delay.</p></div>
+    <div class="card"><span class="tag">Safe</span><h3>Trust is checked, not assumed</h3><p>A discovered model must come from a trusted lab. You can block labs or models, refuse any a provider says is trained on or keeps prompts too long, and mark a single call <code>private</code>.</p></div>
+  </div>
+  <div class="pool" aria-label="Example pool"><span class="down">gemma-4-26b (429)</span><span class="down">nemotron-lightning (hung)</span><span class="live">nemotron-ultra</span><span class="live">gemma-4-31b</span><span class="live">qwen3.5-flash</span><span>mistral-small</span><span>deepseek-v4</span><span>phi-5-mini</span></div>
+  <p class="cap">Illustrative: a pool of eight. The two that are down are skipped; the next three live ones are tried.</p>
+  <h3 class="sub">What the trust policy decides</h3>
+  <div class="tablewrap"><table>
+    <thead><tr><th>Model found by discovery</th><th>Default policy</th><th>Strict: no training, prompts kept ≤ 30 days</th></tr></thead>
+    <tbody>{{vet}}</tbody>
+  </table></div>
+  <p class="cap">Verdicts are computed by the library's own <code>vet()</code> as this page is built, on rows shaped like real lists. On 28 Oct 2026, of Requesty's 807 chat models, 205 came from a lab not on the default list and 9 were marked as trained on. LLM API publishes nothing about what happens to prompts, so under a strict policy none of its models can be <em>discovered</em>; models you name yourself still work.</p>
+  <p class="note"><b>What this is not.</b> There is no vulnerability database for hosted AI models, so Lodestone does not claim to scan one. It checks what providers actually publish, and enforces your rules on it. Those facts are self-reported by providers. <a href="https://github.com/obasaolorunfemi-ai/lodestone/blob/main/SECURITY.md">SECURITY.md</a> lists exactly what is and is not checked.</p>
 </section>
 
-<section class="reveal">
-  <div class="wrap">
-    <span class="num">06 · When everything fails</span>
-    <h2>Eleven kinds of failure, each with its own advice</h2>
-    <p class="sub"><code>complete()</code> and <code>json()</code> throw a <code>LodestoneError</code> with one of these <code>kind</code> values. Tap one to read the sentence <code>explain(err, { product: 'MyApp', settingsHint: 'in Settings' })</code> gives a person.</p>
-    <div class="errs" id="errs"></div>
-    <p class="note">The sentences are the library's own: this page calls <code>explain()</code> for each kind when it is built, so they cannot drift from the code.</p>
+<section id="failures" aria-labelledby="failures-h">
+  <div class="divider"><span class="tag">When everything fails</span><span class="tag">11 kinds</span></div>
+  <div class="head">
+    <h2 id="failures-h">Eleven kinds of failure, each with its own advice</h2>
+    <p><code>complete()</code> and <code>json()</code> throw a <code>LodestoneError</code> with one of these <code>kind</code> values. Tap one to read the sentence <code>explain(err, { product: 'MyApp', settingsHint: 'in Settings' })</code> gives a person.</p>
   </div>
+  <div class="errs" id="errs"></div>
+  <p class="note">The sentences are the library's own: this page calls <code>explain()</code> for each kind when it is built, so they cannot drift from the code.</p>
 </section>
 
-<section class="reveal">
-  <div class="wrap">
-    <span class="num">07 · Getting smarter over time</span>
-    <h2>Scorecards: let measurements choose the order</h2>
-    <p class="sub">Two small JSON formats let an evaluator and Lodestone feed each other without sharing code. <a href="https://naija-eval.extrafemi.com">Naija Eval</a>, which measures translation and speech quality for Hausa, Igbo and Yoruba, is the first to use them. Its scores are translation quality, so they help tasks in those languages, not every task.</p>
-    <div class="loop">
-      <div class="node"><h3>Evaluator (Naija Eval)</h3><p>Measures answer quality, such as chrF++ for English→Yoruba, per model.</p></div>
-      <div class="arrows"><div class="r">model-scorecard/1 →</div><div class="l">← model-candidates/1</div><div class="l">← live reliability</div></div>
-      <div class="node"><h3>Lodestone (in your tool)</h3><p>Tries the best-measured models first for tasks you name, lists the models it can call, and records its own success rates and speeds.</p></div>
-    </div>
-    <ul class="rules">
-      <li>A scorecard only changes the <i>order</i> models are tried in. Nothing is added or dropped.</li>
-      <li>Scores from fewer than 30 items, or over a year old, are ignored.</li>
-      <li>Unmeasured models keep their slot, so a good unmeasured model is never pushed down.</li>
-      <li>An explicit <code>route</code> is never reordered.</li>
-      <li>If the scorecard fetch fails or takes over 1.5 s, the order is left alone.</li>
-      <li>Live stats keep the last 200 attempts per model and never see prompts or answers.</li>
-    </ul>
+<section id="scorecards" aria-labelledby="scorecards-h">
+  <div class="divider"><span class="tag">Getting smarter over time</span><span class="tag">2 JSON formats</span></div>
+  <div class="head">
+    <h2 id="scorecards-h">Scorecards: let measurements choose the order</h2>
+    <p>Two small JSON formats let an evaluator and Lodestone feed each other without sharing code. <a href="https://naija-eval.extrafemi.com">Naija Eval</a>, which measures translation and speech quality for Hausa, Igbo and Yoruba, is the first to use them. Its scores are translation quality, so they help tasks in those languages, not every task.</p>
   </div>
+  <div class="loop">
+    <div class="node"><h3>Evaluator (Naija Eval)</h3><p>Measures answer quality, such as chrF++ for English→Yoruba, per model.</p></div>
+    <div class="arrows" aria-hidden="true"><div class="r">model-scorecard/1 →</div><div class="l">← model-candidates/1</div><div class="l">← live reliability</div></div>
+    <div class="node"><h3>Lodestone (in your tool)</h3><p>Tries the best-measured models first for tasks you name, lists the models it can call, and records its own success rates and speeds.</p></div>
+  </div>
+  <ul class="method">
+    <li>A scorecard only changes the <i>order</i> models are tried in. Nothing is added or dropped.</li>
+    <li>Scores from fewer than 30 items, or over a year old, are ignored.</li>
+    <li>Unmeasured models keep their slot, so a good unmeasured model is never pushed down.</li>
+    <li>An explicit <code>route</code> is never reordered.</li>
+    <li>If the scorecard fetch fails or takes over 1.5 s, the order is left alone.</li>
+    <li>Live stats keep the last 200 attempts per model and never see prompts or answers.</li>
+  </ul>
 </section>
 
-<section class="reveal">
-  <div class="wrap">
-    <span class="num">08 · Using it</span>
-    <h2>What a tool writes</h2>
-    <div class="two">
+<section id="using" aria-labelledby="using-h">
+  <div class="divider"><span class="tag">Using it</span><span class="tag">One setup, task-named calls</span></div>
+  <div class="head">
+    <h2 id="using-h">What a tool writes</h2>
+    <p>Set it up once and share the store. Each call names a task, not a model; Lodestone picks the order, the time slices and the fallbacks.</p>
+  </div>
+  <div class="two">
 <pre class="snip"><span class="c">// set up once, and share the store</span>
 const ai = createLodestone({
   openrouter: { apiKey: OPENROUTER_KEY,
@@ -200,40 +237,93 @@ try {
 } catch (err) {
   return explain(err, { product: 'MyApp' });
 }</pre>
-      <ol class="steps">
-        <li><b>Tiers, not model ids.</b> A task maps to <code>fast</code>, <code>strong</code> or <code>vision</code> (picked automatically when a message has an image). Or pass a fixed <code>route</code> to name provider, model and key yourself.</li>
-        <li><b>Customer keys stay separate.</b> A caller's own key replaces yours and unlocks the paid model, but your fallback providers and your spend ledger are never touched by that call.</li>
-        <li><b>Daily upkeep.</b> <code>checkModels()</code> refreshes every provider's catalogue and reports what has gone or is retiring. <code>cacheKey</code> and <code>peek()</code> reuse answers for repeatable tasks.</li>
-        <li><b>Cancelling.</b> Pass a <code>signal</code>; when the person leaves, the call and every model after it stop.</li>
-        <li><b>Private by design.</b> <code>onAttempt</code> reports provider, model, outcome and timing only. Prompts and answers are never logged.</li>
-      </ol>
-    </div>
+    <ol class="steps">
+      <li><b>Tiers, not model ids.</b> A task maps to <code>fast</code>, <code>strong</code> or <code>vision</code> (picked automatically when a message has an image). Or pass a fixed <code>route</code> to name provider, model and key yourself.</li>
+      <li><b>Customer keys stay separate.</b> A caller's own key replaces yours and unlocks the paid model, but your fallback providers and your spend ledger are never touched by that call.</li>
+      <li><b>Daily upkeep.</b> <code>checkModels()</code> refreshes every provider's catalogue and reports what has gone or is retiring. <code>cacheKey</code> and <code>peek()</code> reuse answers for repeatable tasks.</li>
+      <li><b>Cancelling.</b> Pass a <code>signal</code>; when the person leaves, the call and every model after it stop.</li>
+      <li><b>Private by design.</b> <code>onAttempt</code> reports provider, model, outcome and timing only. Prompts and answers are never logged.</li>
+    </ol>
   </div>
 </section>
 
-<section class="reveal">
-  <div class="wrap">
-    <span class="num">09 · Honest limits</span>
-    <h2>What it does not do yet</h2>
-    <div class="notyet">
-      <div class="card"><h3>Streaming</h3><p><code>complete()</code> and <code>json()</code> wait for the whole answer. Streaming needs a rule for a model that fails halfway; the likely one is to fail over only before the first token.</p></div>
-      <div class="card"><h3>Tool calling, embeddings, speech</h3><p>Lodestone is for one-shot text and JSON calls today. It does not let a model call functions, and it has no tier for embeddings or speech.</p></div>
-      <div class="card"><h3>Other runtimes</h3><p>It uses only <code>fetch</code>, <code>AbortSignal</code> and <code>URL</code>, with no Node-specific APIs, so it should run on Workers, Deno and edge runtimes. It has only been tested on Node 20 and 22.</p></div>
-    </div>
+<section id="limits" aria-labelledby="limits-h">
+  <div class="divider"><span class="tag">Honest limits</span><span class="tag">Not yet</span></div>
+  <div class="head">
+    <h2 id="limits-h">What it does not do yet</h2>
+    <p>Lodestone is for one-shot text and JSON calls today. These are the gaps, stated plainly.</p>
+  </div>
+  <div class="three rise">
+    <div class="card"><h3>Streaming</h3><p><code>complete()</code> and <code>json()</code> wait for the whole answer. Streaming needs a rule for a model that fails halfway; the likely one is to fail over only before the first token.</p></div>
+    <div class="card"><h3>Tool calling, embeddings, speech</h3><p>Lodestone is for one-shot text and JSON calls today. It does not let a model call functions, and it has no tier for embeddings or speech.</p></div>
+    <div class="card"><h3>Other runtimes</h3><p>It uses only <code>fetch</code>, <code>AbortSignal</code> and <code>URL</code>, with no Node-specific APIs, so it should run on Workers, Deno and edge runtimes. It has only been tested on Node 20 and 22.</p></div>
   </div>
 </section>
 
-<section class="reveal">
-  <div class="wrap">
-    <span class="num">10 · Code map</span>
-    <h2>Where each piece lives in <code>src/</code></h2>
-    <p class="sub">Generated from the files in the repository when this page is built. <span class="mono" style="color:var(--green)">+tests</span> marks a file with its own test file; the others are covered by a shared one or by the call-path tests.</p>
-    <div class="map">{{filemap}}</div>
+<section id="code" aria-labelledby="code-h">
+  <div class="divider"><span class="tag">Code map</span><span class="tag">Generated from the repository</span></div>
+  <div class="head">
+    <h2 id="code-h">Where each piece lives in <code>src/</code></h2>
+    <p>Generated from the files in the repository when this page is built. <b>+tests</b> marks a file with its own test file; the others are covered by a shared one or by the call-path tests.</p>
   </div>
+  <div class="map">{{filemap}}</div>
 </section>
 
 </main>
+</div>
 
-<footer><div class="wrap">Lodestone {{version}} · built from commit {{commit}} on {{date}} · <a href="https://github.com/obasaolorunfemi-ai/lodestone/blob/main/docs/scorecards.md">scorecards in full</a> · MIT licence</div></footer>
+<footer class="site-foot">
+  <div class="col family">
+    <a class="fam" href="https://naija-eval.extrafemi.com/">
+      <span class="tag">Feeds scorecards to Lodestone</span>
+      <strong>Naija Eval</strong>
+      <span>An independent, reproducible scorecard for N-ATLaS on Hausa, Igbo and Yoruba, and the first evaluator to publish <code>model-scorecard/1</code>.</span>
+      <span class="go">naija-eval.extrafemi.com <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17 17 7M9 7h8v8"/></svg></span>
+    </a>
+    <a class="fam" href="https://keystone.extrafemi.com/">
+      <span class="tag">Runs on Lodestone</span>
+      <strong>KeyStone</strong>
+      <span>Jobs, grants and visa routes in one place. Its CV scoring and rewriting call AI models through Lodestone.</span>
+      <span class="go">keystone.extrafemi.com <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17 17 7M9 7h8v8"/></svg></span>
+    </a>
+  </div>
+  <div class="col foot-cols">
+    <div>
+      <div class="mark">Lodestone</div>
+      <p>A small TypeScript library that keeps AI calls working when a model is withdrawn, slow, rate-limited or down.</p>
+    </div>
+    <nav aria-label="This page">
+      <h3>This page</h3>
+      <ul>
+        <li><a href="#problem">The problem</a></li>
+        <li><a href="#watch">Watch a call</a></li>
+        <li><a href="#measured">Measured</a></li>
+        <li><a href="#using">Using it</a></li>
+        <li><a href="#code">Code map</a></li>
+      </ul>
+    </nav>
+    <nav aria-label="Project">
+      <h3>Project</h3>
+      <ul>
+        <li><a href="https://github.com/obasaolorunfemi-ai/lodestone">GitHub</a></li>
+        <li><a href="https://www.npmjs.com/package/@extrafemi-ai/lodestone">npm</a></li>
+        <li><a href="https://github.com/obasaolorunfemi-ai/lodestone/blob/main/CHANGELOG.md">Changelog</a></li>
+        <li><a href="https://github.com/obasaolorunfemi-ai/lodestone/blob/main/SECURITY.md">Security</a></li>
+      </ul>
+    </nav>
+    <nav aria-label="More">
+      <h3>More</h3>
+      <ul>
+        <li><a href="https://github.com/obasaolorunfemi-ai/lodestone/blob/main/docs/scorecards.md">Scorecards in full</a></li>
+        <li><a href="https://naija-eval.extrafemi.com/">Naija Eval</a></li>
+        <li><a href="https://keystone.extrafemi.com/">KeyStone</a></li>
+      </ul>
+    </nav>
+  </div>
+  <div class="col foot-base">
+    <p>Lodestone {{version}} · built from commit {{commit}} on {{date}} · MIT licence. Cardo and Lora are set in the SIL Open Font Licence and are served from this site.</p>
+    <p>© 2026 Extrafemi · No cookies, no tracking. Your light or dark choice is kept in your browser, nowhere else.</p>
+  </div>
+</footer>
 </body>
 </html>
