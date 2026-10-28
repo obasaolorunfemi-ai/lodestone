@@ -17,7 +17,7 @@ for (const [name, key, preset, models, baseUrl] of checks) {
   const ai = createLodestone({ fallbacks: [{ provider: preset(), apiKey: key, models, free: name === 'groq()' || name === 'cerebras()' }], onAttempt: (e) => attempts.push(e) });
   const t0 = Date.now();
   try {
-    const r = await ai.json({ prompt: 'Reply with only this JSON: {"ok":true}', maxTokens: 400, // room for a model that thinks before it answers validate: (v) => v?.ok === true });
+    const r = await ai.json({ prompt: 'Reply with only this JSON: {"ok":true}', maxTokens: 400 /* room for a model that thinks before it answers */, validate: (v) => v?.ok === true });
     rows.push({ preset: name, result: 'answered', model: r.model, seconds: +((Date.now() - t0) / 1000).toFixed(1), usage: r.usage ?? null });
   } catch (err) {
     rows.push({ preset: name, result: 'failed', kind: err.kind, seconds: +((Date.now() - t0) / 1000).toFixed(1), say: explain(err, { product: 'check' }), attempts: attempts.map((a) => `${a.model}: ${a.outcome}${a.status ? ' ' + a.status : ''}`) });
