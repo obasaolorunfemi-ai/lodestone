@@ -65,3 +65,29 @@ describe('google adapter', () => {
     expect(r).toEqual({ text: 'ab', usage: { inputTokens: 4, outputTokens: 1 } });
   });
 });
+
+describe('openrouter cost', () => {
+  it('asks for the cost of the call and reports it with the usage', async () => {
+    const { seen, f } = capture({ choices: [{ message: { content: 'ok' } }], usage: { prompt_tokens: 900, completion_tokens: 120, cost: 0.00031 } });
+    const r = await openrouter({ fetch: f }).call({ ...base, messages: [{ role: 'user', content: 'x' }] });
+    expect(seen.body.usage).toEqual({ include: true });
+    expect(r.usage).toEqual({ inputTokens: 900, outputTokens: 120, costUsd: 0.00031 });
+  });
+  it('leaves the cost out when the provider does not give one', async () => {
+    const { f } = capture({ choices: [{ message: { content: 'ok' } }], usage: { prompt_tokens: 9, completion_tokens: 2 } });
+    expect((await openrouter({ fetch: f }).call({ ...base, messages: [{ role: 'user', content: 'x' }] })).usage).toEqual({ inputTokens: 9, outputTokens: 2 });
+  });
+});
+
+describe('openrouter reasoning per model', () => {
+  it('sends the setting the caller chose for each model, and none where it says none', async () => {
+    const reasoning = (m: string) => (m.startsWith('anthropic/') ? { enabled: false } : m.startsWith('google/') ? { effort: 'low', exclude: true } : null);
+    const sent: Record<string, unknown> = {};
+    const f = (async (_u: unknown, init: RequestInit) => { const b = JSON.parse(String(init.body)); sent[b.model] = b.reasoning; return new Response(JSON.stringify({ choices: [{ message: { content: 'ok' } }] })); }) as typeof fetch;
+    const p = openrouter({ fetch: f, reasoning });
+    for (const model of ['anthropic/claude-haiku-5.5', 'google/gemini-3.8-flash', 'mistralai/mistral-small']) await p.call({ ...base, model, messages: [{ role: 'user', content: 'x' }] });
+    expect(sent['anthropic/claude-haiku-5.5']).toEqual({ enabled: false });
+    expect(sent['google/gemini-3.8-flash']).toEqual({ effort: 'low', exclude: true });
+    expect(sent['mistralai/mistral-small']).toBeUndefined();
+  });
+});

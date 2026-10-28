@@ -10,6 +10,8 @@ export interface Message {
 export interface Usage {
   inputTokens: number;
   outputTokens: number;
+  /** What the provider charged for this call, in US dollars, when it says (OpenRouter does). */
+  costUsd?: number;
 }
 
 /** What a provider adapter is asked to do: one model, one request. */

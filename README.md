@@ -87,6 +87,36 @@ const { ok, withdrawn, shortTiers } = await ai.checkModels();
 
 `withdrawn` lists preferred models that have gone. That is harmless, they are already replaced. `ok` is false only when the catalogue can't be read or a tier is left with fewer than two real models. Without a daily run, a request that finds the saved catalogue over a day old refreshes it in the background.
 
+### Free models that are not worth waiting for (`paidFirst`)
+
+Free models can be down for hours (rate-limited, or holding a connection open for 45 seconds and never answering). On the platform's own key, `openrouter: { paidFirst: true }` tries the low-cost paid model first and the free ones only if it fails or the spend limit is reached, so a request is not slowed by free models that are not going to answer. A caller's own key is not affected: the paid models are their money, so their free models still come first. Reasoning is set per model with `openrouter({ reasoning: (model) => ... })`, because models differ: one thinks for a thousand tokens unless told not to (measured: turning it off halved scoring time, 10 s to 5 s, with the same answers), another refuses to run with reasoning off.
+
+### Not waiting on a model that is down (circuit breaker)
+
+Free models fail in bursts: rate-limited, stuck, or answering nothing. Without memory, every request pays for the same dead models again. `createHealth()` remembers:
+
+```ts
+import { createHealth } from '@extrafemi-ai/lodestone';
+const health = createHealth({ store });   // the same store as the catalogue: every serverless function shares it
+const ai = createLodestone({ /* ... */, health });
+```
+
+A model whose last three attempts (within ten minutes) all failed is skipped, so the next request goes straight to one that works. Every two minutes one attempt is let through to see whether it has recovered, and one success closes it again. A timeout, a rate limit, a server error and an unusable answer count as failures; a rejected key or missing credit (401, 402, 403) say nothing about the model and never do. If every free model looks down and a paid one can follow, the free ones are skipped entirely; if nothing can follow, they are still tried, because trying is better than not answering. `health.snapshot()` lists what it has seen, for a health page.
+
+### Limiting what the platform spends
+
+```ts
+const ai = createLodestone({
+  /* ... */
+  spend: {
+    allow: async ({ model, phase }) => (await spentToday()) < DAILY_LIMIT_USD,
+    record: async ({ costUsd }) => addToday(costUsd ?? 0),
+  },
+});
+```
+
+`allow` is asked before each attempt that spends the platform's money (the paid models and fallback providers on the platform's keys), and a `false` means that model is not used. `record` is told what each such call cost: the provider's own figure when it gives one (OpenRouter does), otherwise an estimate from the model's catalogue price. Free models and a caller's own key (their money, not yours) never go through either. When the limit stops every paid option the error is `kind: 'budget'`. A `record` that throws never fails the answer.
+
 ### Letting measurements decide the order
 
 A scorecard (a small JSON file of measured results) can put the models that did best on your kind of task first, and Lodestone can publish its own live success rates and speeds in the same format. [Naija Eval](https://naija-eval.extrafemi.com) publishes translation and speech quality for Hausa, Igbo and Yoruba this way. It is opt-in, per task, and only changes the order models are tried in. See [docs/scorecards.md](docs/scorecards.md).

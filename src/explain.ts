@@ -49,6 +49,8 @@ export function explain(err: unknown, opts: ExplainOptions = {}): string {
       return "The AI gave back something that couldn't be read. Try again; it usually works on a second attempt.";
     case 'credit':
       return 'The AI account has no credit for the backup model. Add a little credit and try again.';
+    case 'budget':
+      return `${product}'s AI budget for now is used up, and the free models are busy. Try again later${opts.settingsHint ? `, or add your own OpenRouter key ${opts.settingsHint.replace(/^in /, 'in ')} to keep going` : ''}.`;
     case 'not_configured':
       return `${product}'s AI isn't set up yet.`;
     default:

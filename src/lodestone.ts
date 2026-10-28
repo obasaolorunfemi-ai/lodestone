@@ -7,6 +7,7 @@ import { readRateLimit, type RateLimitReading } from './rateLimit.js';
 import { anthropic } from './providers/anthropic.js';
 import { google } from './providers/google.js';
 import { openrouter } from './providers/openrouter.js';
+import type { Health } from './health.js';
 import { rankModels, type QualityQuery, type Scorecard } from './scorecard.js';
 import type { Stats } from './stats.js';
 import { memoryStore } from './store.js';
@@ -33,9 +34,19 @@ export interface AttemptEvent {
   provider: string;
   model: string;
   phase: 'free' | 'paid' | 'fallback' | 'route';
-  outcome: 'ok' | 'timeout' | 'failed';
+  /** 'skipped': not tried, because the breaker had it down or the spend limit was reached. */
+  outcome: 'ok' | 'timeout' | 'failed' | 'skipped';
   status?: number;
   ms: number;
+}
+
+/** Where the platform's money is counted. Only attempts that spend it go through: the paid models and the
+ *  fallback providers on the platform's keys. A call on the caller's own key never does. */
+export interface SpendControl {
+  /** Asked before each such attempt. Return false once the limit is reached and that model is not used. */
+  allow(info: { provider: string; model: string; phase: 'paid' | 'fallback' }): boolean | Promise<boolean>;
+  /** Told after each such attempt that answered, with what it cost: the provider's own figure when it gives one (OpenRouter does), otherwise an estimate from the model's catalogue price, otherwise nothing. */
+  record(info: { provider: string; model: string; phase: 'paid' | 'fallback'; usage?: Usage; costUsd?: number }): void | Promise<void>;
 }
 
 export interface LodestoneConfig {
@@ -44,6 +55,8 @@ export interface LodestoneConfig {
     apiKey?: string;
     /** Use the paid models after the free ones fail, on the platform's key. A caller's own key always allows it. */
     allowPaid?: boolean;
+    /** On the platform's key, try the paid models first and the free ones only if they fail or the spend limit is reached. For when the free models are too unreliable to be worth waiting for. Not applied to a caller's own key: it is their money, so their free models are still tried first. */
+    paidFirst?: boolean;
     models?: Partial<Record<Tier, string[]>>;
     paidModels?: string[];
     /** Replace the OpenRouter adapter (tests, proxies). */
@@ -58,6 +71,10 @@ export interface LodestoneConfig {
    *  nobody has measured keep their place. A function is called per request, so it can fetch
    *  and cache; if it fails or takes over 1.5 s the order is left alone. */
   scorecards?: Scorecard[] | (() => Promise<Scorecard[]>);
+  /** Skips models that have been failing, so a request does not spend its time on them (see health.ts). */
+  health?: Health;
+  /** Counts and limits the platform's spend. Without it nothing is counted or limited. */
+  spend?: SpendControl;
   /** Records every attempt so you can publish how each model does (stats.scorecard()). */
   stats?: Stats;
   /** Named tasks, so calls say what they are doing and not which model to use. */
@@ -67,7 +84,7 @@ export interface LodestoneConfig {
   /** Everything has to finish inside this. Default 24 000 ms, under a 30 s gateway limit. */
   budgetMs?: number;
   /** Time limits for tuning and tests. */
-  timing?: { freeSliceMs?: number; freeSliceWithLaterMs?: number; freePhaseWithLaterMs?: number; minSliceMs?: number };
+  timing?: { freeSliceMs?: number; freeSliceWithLaterMs?: number; freePhaseWithLaterMs?: number; minSliceMs?: number; paidSliceMs?: number };
   fetch?: typeof fetch;
   now?: () => number;
   /** Called after every model attempt: for logs and metrics. Never receives prompts or answers. */
@@ -129,6 +146,7 @@ export function createLodestone(config: LodestoneConfig = {}) {
     freeSliceLater: config.timing?.freeSliceWithLaterMs ?? 5_000,
     freePhaseLater: config.timing?.freePhaseWithLaterMs ?? 9_000,
     minSlice: config.timing?.minSliceMs ?? 3_000,
+    paidSlice: config.timing?.paidSliceMs ?? 12_000,
   };
   const now = config.now ?? Date.now;
   const store = config.store ?? memoryStore();
@@ -151,6 +169,15 @@ export function createLodestone(config: LodestoneConfig = {}) {
     if (!src) return [];
     if (Array.isArray(src)) return src;
     try { return await Promise.race([src(), new Promise<Scorecard[]>((resolve) => setTimeout(() => resolve([]), 1_500).unref?.())]); } catch { return []; }
+  }
+
+  /** What a call cost, estimated from the model's catalogue price, for providers that do not report it. */
+  async function estimateCost(model: string, usage?: Usage): Promise<number | undefined> {
+    if (!usage) return undefined;
+    const m = (await catalog.load().catch(() => null))?.find((x) => x.id === model);
+    const inP = Number(m?.pricing?.prompt);
+    const outP = Number(m?.pricing?.completion);
+    return Number.isFinite(inP) && Number.isFinite(outP) ? usage.inputTokens * inP + usage.outputTokens * outP : undefined;
   }
 
   async function complete(opts: CompleteOptions): Promise<CompleteResult> {
@@ -189,6 +216,27 @@ export function createLodestone(config: LodestoneConfig = {}) {
     let rateLimited: Extract<Outcome, { kind: 'fail' }> | null = null;
     let authFailed = false;
     let needsCredit = false;
+    let spendBlocked = false;
+    const callerKey = Boolean(opts.apiKey);
+
+    /** Drops the models the breaker has down, saying so. */
+    const healthy = async (provider: Provider, list: string[], phase: AttemptEvent['phase']): Promise<string[]> => {
+      if (!config.health) return list;
+      const keep: string[] = [];
+      for (const m of list) {
+        if (await config.health.shouldSkip(provider.name, m)) config.onAttempt?.({ provider: provider.name, model: m, phase, outcome: 'skipped', ms: 0 });
+        else keep.push(m);
+      }
+      return keep;
+    };
+    /** May the platform's money be spent on this attempt? A caller's own key is their money, not ours. */
+    const mayUse = async (provider: Provider, model: string, phase: 'paid' | 'fallback'): Promise<boolean> => {
+      if (callerKey || !config.spend) return true;
+      if (await config.spend.allow({ provider: provider.name, model, phase })) return true;
+      spendBlocked = true;
+      config.onAttempt?.({ provider: provider.name, model, phase, outcome: 'skipped', ms: 0 });
+      return false;
+    };
 
     const attempt = async (provider: Provider, apiKey: string, model: string, phase: AttemptEvent['phase'], ms: number): Promise<Outcome> => {
       attempted = true;
@@ -207,14 +255,20 @@ export function createLodestone(config: LodestoneConfig = {}) {
       }
       const event: AttemptEvent = { provider: provider.name, model, phase, outcome: out.kind === 'ok' ? 'ok' : out.kind === 'timeout' ? 'timeout' : 'failed', status: out.kind === 'fail' ? out.status : undefined, ms: now() - at };
       // A key or credit problem (401, 402, 403) says nothing about the model, so it is not counted against it.
-      if (!(out.kind === 'fail' && [401, 402, 403].includes(out.status))) config.stats?.record(event);
+      const credential = out.kind === 'fail' && [401, 402, 403].includes(out.status);
+      if (!credential) { config.stats?.record(event); await config.health?.record(provider.name, model, out.kind === 'ok'); }
       config.onAttempt?.(event);
       last = out;
       return out;
     };
 
-    const finish = async (provider: Provider, model: string, reply: ProviderReply): Promise<CompleteResult> => {
+    const finish = async (provider: Provider, model: string, reply: ProviderReply, phase?: 'paid' | 'fallback'): Promise<CompleteResult> => {
       const result: CompleteResult = { text: reply.text, provider: provider.name, model, usage: reply.usage };
+      if (phase && !callerKey && config.spend) {
+        const costUsd = reply.usage?.costUsd ?? (await estimateCost(model, reply.usage));
+        // A ledger that fails must never fail an answer the person is waiting for.
+        try { await config.spend.record({ provider: provider.name, model, phase, usage: reply.usage, costUsd }); } catch { /* not counted */ }
+      }
       if (cacheSlot) await store.set(cacheSlot, { ...result, at: now() }).catch(() => {});
       return result;
     };
@@ -241,45 +295,77 @@ export function createLodestone(config: LodestoneConfig = {}) {
       throw classify(firstFail ?? (lastRoute?.kind === 'fail' ? lastRoute : null), Boolean(opts.apiKey), false, false);
     }
 
-    // Phase 1: OpenRouter's free models. A withdrawn one has already been replaced by resolveModels.
-    if (orKey) {
-      const models = await order(await resolveModels(tier));
-      for (let i = 0; i < models.length && freeLeft() >= t.minSlice; i++) {
-        const slice = i >= models.length - 1 ? freeLeft() : Math.min(later ? t.freeSliceLater : t.freeSlice, freeLeft());
-        const out = await attempt(router, orKey, models[i], 'free', slice);
+    // OpenRouter: the free models and the low-cost paid ones. Free first by default; paid first when the
+    // platform's key is used and the free models are not worth waiting for (see paidFirst).
+    const paidFirst = Boolean(config.openrouter?.paidFirst) && !callerKey && paidAvailable;
+
+    /** The free models. A withdrawn one has already been replaced by resolveModels. */
+    const runFree = async (): Promise<CompleteResult | null> => {
+      const all = await order(await resolveModels(tier));
+      let models = await healthy(router, all, 'free');
+      // With nothing after the free models to fall back on, a model that may be down is still better than no attempt.
+      if (models.length === 0 && !later && !paidFirst) models = all;
+      const leftHere = () => (paidFirst ? left() : freeLeft());
+      for (let i = 0; i < models.length && leftHere() >= t.minSlice; i++) {
+        const slice = i >= models.length - 1 ? leftHere() : Math.min(later && !paidFirst ? t.freeSliceLater : t.freeSlice, leftHere());
+        const out = await attempt(router, orKey!, models[i], 'free', slice);
         if (out.kind === 'ok') return finish(router, models[i], out.reply);
         if (out.kind === 'fail') {
           if (out.status === 401) { authFailed = true; break; } // the key is wrong: no other model will differ
           if (out.status === 429) rateLimited = out;
         }
       }
+      return null;
+    };
 
-      // Phase 2: a low-cost paid model, which is not under the free-model limits.
-      if (paidAvailable && !authFailed) {
-        for (const m of await order(paidModels)) {
-          if (left() < t.minSlice) break;
-          const out = await attempt(router, orKey, m, 'paid', left());
-          if (out.kind === 'ok') return finish(router, m, out.reply);
-          if (out.kind === 'fail') {
-            if (out.status === 402) { needsCredit = true; break; }
-            if (out.status === 401) break;
-          }
+    /** A low-cost paid model, which is not under the free-model limits. */
+    const runPaid = async (): Promise<CompleteResult | null> => {
+      const paidAll = await order(paidModels);
+      let paidList = await healthy(router, paidAll, 'paid');
+      if (paidList.length === 0) paidList = paidAll; // never leave no paid attempt because of the breaker
+      for (let i = 0; i < paidList.length; i++) {
+        const m = paidList[i];
+        if (left() < t.minSlice) break;
+        if (!(await mayUse(router, m, 'paid'))) continue;
+        // Going first, a paid model may not use all the time: the free models and the rest need some.
+        const ms = paidFirst && i < paidList.length - 1 ? Math.min(left(), t.paidSlice) : left();
+        const out = await attempt(router, orKey!, m, 'paid', ms);
+        if (out.kind === 'ok') return finish(router, m, out.reply, 'paid');
+        if (out.kind === 'fail') {
+          if (out.status === 402) { needsCredit = true; break; }
+          if (out.status === 401) break;
         }
+      }
+      return null;
+    };
+
+    if (orKey) {
+      if (paidFirst) {
+        const a = await runPaid(); if (a) return a;
+        const b = authFailed ? null : await runFree(); if (b) return b;
+      } else {
+        const b = await runFree(); if (b) return b;
+        if (paidAvailable && !authFailed) { const a = await runPaid(); if (a) return a; }
       }
     }
 
     // Phase 3: other providers, with their own keys.
     for (const fb of fbs) {
-      for (const m of await order(fb.models)) {
+      const fbAll = await order(fb.models);
+      let fbList = await healthy(fb.provider, fbAll, 'fallback');
+      if (fbList.length === 0) fbList = fbAll;
+      for (const m of fbList) {
         if (left() < t.minSlice) break;
+        if (!(await mayUse(fb.provider, m, 'fallback'))) continue;
         const out = await attempt(fb.provider, fb.apiKey, m, 'fallback', left());
-        if (out.kind === 'ok') return finish(fb.provider, m, out.reply);
+        if (out.kind === 'ok') return finish(fb.provider, m, out.reply, 'fallback');
         if (out.kind === 'fail' && out.status === 401) break; // this provider's key is wrong: skip its other models
       }
     }
 
     // Nothing answered. Say why, using what the first useful failure told us.
     const ownKey = Boolean(opts.apiKey);
+    if (spendBlocked) throw new LodestoneError('budget');
     if (!attempted) throw new LodestoneError('not_configured');
     const lastFail = last as Outcome | null;
     if (!rateLimited && lastFail?.kind === 'timeout') throw new LodestoneError('slow');

@@ -1,5 +1,5 @@
 export { createLodestone } from './lodestone.js';
-export type { Lodestone, LodestoneConfig, CompleteOptions, CompleteResult, Profile, FallbackConfig, AttemptEvent, RouteStep } from './lodestone.js';
+export type { Lodestone, LodestoneConfig, CompleteOptions, CompleteResult, Profile, FallbackConfig, AttemptEvent, RouteStep, SpendControl } from './lodestone.js';
 export { LodestoneError, ProviderError, messageFrom } from './errors.js';
 export type { FailureKind } from './errors.js';
 export { explain } from './explain.js';
@@ -22,3 +22,5 @@ export { createStats } from './stats.js';
 export type { Stats, StatsOptions, StatsState } from './stats.js';
 export { CANDIDATES_SCHEMA } from './candidates.js';
 export type { Candidates, Candidate } from './candidates.js';
+export { createHealth } from './health.js';
+export type { Health, HealthOptions, ModelHealth } from './health.js';
