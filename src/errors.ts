@@ -32,6 +32,8 @@ export type FailureKind =
   | 'unavailable'
   /** A model answered but the answer was not usable (empty, not valid JSON, failed validation). */
   | 'bad_output'
+  /** The caller stopped the call (it passed a signal that was aborted). */
+  | 'aborted'
   /** The platform's spend limit has been reached, so no paid model was used. */
   | 'budget'
   /** No provider has a key. */

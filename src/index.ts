@@ -1,5 +1,5 @@
 export { createLodestone } from './lodestone.js';
-export type { Lodestone, LodestoneConfig, CompleteOptions, CompleteResult, Profile, FallbackConfig, AttemptEvent, RouteStep, SpendControl } from './lodestone.js';
+export type { Lodestone, LodestoneConfig, CompleteOptions, CompleteResult, Profile, FallbackConfig, AttemptEvent, RouteStep, SpendControl, CheckResult } from './lodestone.js';
 export { LodestoneError, ProviderError, messageFrom } from './errors.js';
 export type { FailureKind } from './errors.js';
 export { explain } from './explain.js';
@@ -24,3 +24,10 @@ export { CANDIDATES_SCHEMA } from './candidates.js';
 export type { Candidates, Candidate } from './candidates.js';
 export { createHealth } from './health.js';
 export type { Health, HealthOptions, ModelHealth } from './health.js';
+export { openaiCompatible, requesty, llmapi, groq, cerebras, openai, mistral, together, ollama, normalizeRequesty, normalizeLlmapi } from './providers/openaiCompatible.js';
+export type { OpenAICompatibleOptions, PresetOptions } from './providers/openaiCompatible.js';
+export { vet, publisherOf, DEFAULT_PUBLISHERS } from './trust.js';
+export type { TrustPolicy, Verdict } from './trust.js';
+export { resolveProviderModels } from './discover.js';
+export type { FillOptions } from './discover.js';
+export type { CatalogModel as ModelInfo } from './catalog.js';

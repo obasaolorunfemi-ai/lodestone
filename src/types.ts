@@ -1,3 +1,5 @@
+import type { CatalogModel } from './catalog.js';
+
 export type Tier = 'fast' | 'strong' | 'vision';
 
 export type ContentPart = { type: 'text'; text: string } | { type: 'image'; dataUrl: string };
@@ -23,6 +25,8 @@ export interface ProviderRequest {
   /** Left out when the caller did not set one, so the provider's own default applies. */
   temperature?: number;
   apiKey: string;
+  /** 'strict': the prompt must not be kept or used for training. A provider that can enforce it does (OpenRouter); the rest rely on Lodestone choosing only models whose list says so. */
+  privacy?: 'strict';
   signal: AbortSignal;
 }
 
@@ -36,6 +40,8 @@ export interface Provider {
   /** Can this provider read images? */
   vision: boolean;
   call(req: ProviderRequest): Promise<ProviderReply>;
+  /** The models the provider offers right now, with price and what it does with prompts where it says. Lets Lodestone drop a model that has gone and find others. */
+  listModels?(apiKey: string, signal?: AbortSignal): Promise<CatalogModel[] | null>;
 }
 
 /** Where Lodestone keeps the model catalogue and cached answers. Anything that can

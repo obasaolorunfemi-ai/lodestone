@@ -117,6 +117,52 @@ const ai = createLodestone({
 
 `allow` is asked before each attempt that spends the platform's money (the paid models and fallback providers on the platform's keys), and a `false` means that model is not used. `record` is told what each such call cost: the provider's own figure when it gives one (OpenRouter does), otherwise an estimate from the model's catalogue price. Free models and a caller's own key (their money, not yours) never go through either. When the limit stops every paid option the error is `kind: 'budget'`. A `record` that throws never fails the answer.
 
+### Providers, and not depending on one
+
+OpenRouter is the default, but one provider's outage should not stop your tool. Give Lodestone others as `fallbacks`, each with its own key. Any service that speaks OpenAI's chat API works through `openaiCompatible()`, and presets exist for the ones Lodestone has been checked against:
+
+| Preset | Service | Notes |
+|---|---|---|
+| `requesty()` | [Requesty](https://www.requesty.ai) | Gateway to 800+ models with failover. Publishes price, lab, whether a model is trained on and how long prompts are kept. `requesty({ region: 'eu' })` keeps prompts in the EU. No free models; a 5% markup. |
+| `llmapi()` | [LLM API](https://llmapi.ai) | Gateway to 150+ chat models. Lists price; ignores its image, video and speech models. |
+| `groq()`, `cerebras()` | Groq, Cerebras | Fast inference with free tiers. Use `free: true` so they are not counted against a spend limit. |
+| `openai()`, `mistral()`, `together()` | the providers themselves | |
+| `ollama()` | a local server | Free and private. |
+| `anthropic()`, `google()` | direct | Not OpenAI-style, so they have their own adapters. |
+
+```ts
+fallbacks: [
+  { provider: requesty(), apiKey: process.env.REQUESTY_API_KEY!, models: ['bedrock/claude-haiku-5-5'], discover: { fill: { maxPromptUsdPerMTok: 1, maxCompletionUsdPerMTok: 5 }, max: 3 } },
+  { provider: groq(), apiKey: process.env.GROQ_API_KEY!, models: ['llama-3.3-70b-versatile'], free: true },
+]
+```
+
+Model ids are each service's own. See [examples/multi-provider.ts](examples/multi-provider.ts).
+
+### Model lists that keep themselves alive, and short
+
+- **Outdated or shut down.** The daily `checkModels()` saves each provider's current catalogue. A model the provider no longer lists is dropped; one with an expiry date within a week (OpenRouter publishes it) is left out; one that is failing right now is skipped by the circuit breaker. Nobody edits a list.
+- **New models.** `discover: { fill }` tops a short list up from the provider's own catalogue with models within a price limit ("free" is a limit of zero) from trusted labs. For OpenRouter's free models this happens by itself.
+- **Not a longer wait.** Discovery never lengthens what a request walks. A background pool (up to 8 per tier) is ranked, the models that are down are filtered out, and a request tries at most three. When one fails, the next best takes its place for later requests, so adding models adds choice, not delay.
+- **Safe by default.** A discovered model is used only if its publisher is on the trust list; `trust` also takes a block list, refuses models a provider says are trained on or that keep prompts too long, and `private: true` applies the same to one call. There is no vulnerability database for hosted models, so none is claimed: see [SECURITY.md](SECURITY.md) for exactly what is and is not checked.
+
+### Cancelling
+
+```ts
+const controller = new AbortController();
+req.on('close', () => controller.abort());           // the person left the page
+await ai.complete({ prompt, signal: controller.signal });   // throws a LodestoneError of kind 'aborted'
+```
+
+### Where it runs
+
+Lodestone uses only `fetch`, `AbortSignal` and `URL`, with no Node-specific APIs, so it should run on Cloudflare Workers, Deno and edge runtimes too. **It is tested on Node 20 and 22 only.** Reports from other runtimes are welcome.
+
+### Not yet
+
+- **Streaming.** `complete()` and `json()` wait for the whole answer. Streaming needs a decision about a model that fails halfway; the likely rule is to fail over only before the first token.
+- **Tool calling** (functions the model can call), and **embeddings or speech**. Lodestone is for one-shot text and JSON calls today.
+
 ### Letting measurements decide the order
 
 A scorecard (a small JSON file of measured results) can put the models that did best on your kind of task first, and Lodestone can publish its own live success rates and speeds in the same format. [Naija Eval](https://naija-eval.extrafemi.com) publishes translation and speech quality for Hausa, Igbo and Yoruba this way. It is opt-in, per task, and only changes the order models are tried in. See [docs/scorecards.md](docs/scorecards.md).
