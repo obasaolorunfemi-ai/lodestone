@@ -101,6 +101,12 @@ export const normalizeLlmapi = (r: Record<string, unknown>): CatalogModel | null
   };
 };
 
+/** Groq lists speech, text-to-speech and safety-classifier models beside its chat models (seen 28 Oct 2026: whisper, orpheus, prompt-guard, safeguard). Those are not chat models, so they are left out. */
+export const normalizeGroq = (r: Record<string, unknown>): CatalogModel | null => {
+  if (typeof r.id !== 'string' || r.active === false || /whisper|orpheus|tts|guard|embed/i.test(r.id)) return null;
+  return { id: r.id, ...(num(r.context_window) !== undefined ? { context_length: num(r.context_window) } : {}) };
+};
+
 export interface PresetOptions { fetch?: typeof fetch; headers?: Record<string, string>; reasoning?: OpenAICompatibleOptions['reasoning'] }
 
 /** https://www.requesty.ai: a gateway to 800+ models, with failover between providers. `region: 'eu'` keeps prompts in the EU. */
@@ -109,7 +115,7 @@ export const requesty = (o: PresetOptions & { region?: 'eu' } = {}) =>
 /** https://llmapi.ai: a gateway to 150+ chat models. */
 export const llmapi = (o: PresetOptions = {}) => openaiCompatible({ name: 'llmapi', baseUrl: 'https://api.llmapi.ai/v1', normalize: normalizeLlmapi, ...o });
 /** https://groq.com: fast inference with a free developer tier. */
-export const groq = (o: PresetOptions = {}) => openaiCompatible({ name: 'groq', baseUrl: 'https://api.groq.com/openai/v1', ...o });
+export const groq = (o: PresetOptions = {}) => openaiCompatible({ name: 'groq', baseUrl: 'https://api.groq.com/openai/v1', normalize: normalizeGroq, ...o });
 /** https://cerebras.ai: fast inference with a free tier. */
 export const cerebras = (o: PresetOptions = {}) => openaiCompatible({ name: 'cerebras', baseUrl: 'https://api.cerebras.ai/v1', ...o });
 export const openai = (o: PresetOptions = {}) => openaiCompatible({ name: 'openai', baseUrl: 'https://api.openai.com/v1', ...o });

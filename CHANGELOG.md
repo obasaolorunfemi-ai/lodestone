@@ -6,6 +6,8 @@ Versions before 1.0 may change between minor releases; each change that could br
 
 - **Schemas.** `json({ schema })` accepts anything with a `safeParse` method, such as a Zod schema, as well as a hand-written `validate` function. A model whose answer the schema rejects is skipped for the next, as before, and `data` is what the schema returns, so its defaults and transforms apply. Lodestone does not depend on any schema library; the `SafeParser` type is exported.
 
+- **Groq's model list no longer includes non-chat models.** A live check on 28 Oct 2026 showed Groq lists speech (whisper), text-to-speech (orpheus) and safety-classifier (prompt-guard, safeguard) models beside its chat models, and `groq()` counted all 11 as chat. `normalizeGroq` leaves them out, so discovery cannot pick one. The same check showed `llama-3.3-70b-versatile` is no longer offered by Groq (a 404, reported as `withdrawn`).
+
 ## 0.5.1
 
 No change to the library's behaviour.

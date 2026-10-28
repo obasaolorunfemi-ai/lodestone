@@ -5,7 +5,7 @@
 import { createLodestone, groq, requesty, llmapi, cerebras, explain } from '../dist/index.js';
 
 const checks = [
-  ['groq()', process.env.GROQ_API_KEY, groq, ['llama-3.3-70b-versatile'], 'https://api.groq.com/openai/v1'],
+  ['groq()', process.env.GROQ_API_KEY, groq, ['openai/gpt-oss-20b'], 'https://api.groq.com/openai/v1'],
   ['requesty()', process.env.REQUESTY_API_KEY, requesty, ['bedrock/claude-haiku-5-5'], 'https://router.requesty.ai/v1'],
   ['llmapi()', process.env.LLMAPI_API_KEY, llmapi, ['gemini-3.8-flash'], 'https://api.llmapi.ai/v1'],
   ['cerebras()', process.env.CEREBRAS_API_KEY, cerebras, ['llama-3.3-70b'], 'https://api.cerebras.ai/v1'],
@@ -17,7 +17,7 @@ for (const [name, key, preset, models, baseUrl] of checks) {
   const ai = createLodestone({ fallbacks: [{ provider: preset(), apiKey: key, models, free: name === 'groq()' || name === 'cerebras()' }], onAttempt: (e) => attempts.push(e) });
   const t0 = Date.now();
   try {
-    const r = await ai.json({ prompt: 'Reply with only this JSON: {"ok":true}', maxTokens: 20, validate: (v) => v?.ok === true });
+    const r = await ai.json({ prompt: 'Reply with only this JSON: {"ok":true}', maxTokens: 400, // room for a model that thinks before it answers validate: (v) => v?.ok === true });
     rows.push({ preset: name, result: 'answered', model: r.model, seconds: +((Date.now() - t0) / 1000).toFixed(1), usage: r.usage ?? null });
   } catch (err) {
     rows.push({ preset: name, result: 'failed', kind: err.kind, seconds: +((Date.now() - t0) / 1000).toFixed(1), say: explain(err, { product: 'check' }), attempts: attempts.map((a) => `${a.model}: ${a.outcome}${a.status ? ' ' + a.status : ''}`) });
