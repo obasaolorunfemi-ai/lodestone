@@ -5,13 +5,13 @@
 import { createLodestone, groq, requesty, llmapi, cerebras, explain } from '../dist/index.js';
 
 const checks = [
-  ['groq()', process.env.GROQ_API_KEY, groq, ['llama-3.3-70b-versatile']],
-  ['requesty()', process.env.REQUESTY_API_KEY, requesty, ['bedrock/claude-haiku-5-5']],
-  ['llmapi()', process.env.LLMAPI_API_KEY, llmapi, ['gemini-3.8-flash']],
-  ['cerebras()', process.env.CEREBRAS_API_KEY, cerebras, ['llama-3.3-70b']],
+  ['groq()', process.env.GROQ_API_KEY, groq, ['llama-3.3-70b-versatile'], 'https://api.groq.com/openai/v1'],
+  ['requesty()', process.env.REQUESTY_API_KEY, requesty, ['bedrock/claude-haiku-5-5'], 'https://router.requesty.ai/v1'],
+  ['llmapi()', process.env.LLMAPI_API_KEY, llmapi, ['gemini-3.8-flash'], 'https://api.llmapi.ai/v1'],
+  ['cerebras()', process.env.CEREBRAS_API_KEY, cerebras, ['llama-3.3-70b'], 'https://api.cerebras.ai/v1'],
 ];
 const rows = [];
-for (const [name, key, preset, models] of checks) {
+for (const [name, key, preset, models, baseUrl] of checks) {
   if (!key) { rows.push({ preset: name, result: 'skipped: no key set' }); continue; }
   const attempts = [];
   const ai = createLodestone({ fallbacks: [{ provider: preset(), apiKey: key, models, free: name === 'groq()' || name === 'cerebras()' }], onAttempt: (e) => attempts.push(e) });
@@ -22,10 +22,11 @@ for (const [name, key, preset, models] of checks) {
   } catch (err) {
     rows.push({ preset: name, result: 'failed', kind: err.kind, seconds: +((Date.now() - t0) / 1000).toFixed(1), say: explain(err, { product: 'check' }), attempts: attempts.map((a) => `${a.model}: ${a.outcome}${a.status ? ' ' + a.status : ''}`) });
   }
-  // The model-list reader too: does it parse the service's real list?
+  // The model list: the HTTP status of GET /models with this key, and whether Lodestone's reader parsed it.
   try {
-    const list = await ai.checkModels();
-    rows.push({ preset: name + ' list', result: list.ok ? 'read' : 'not read', detail: JSON.stringify(list).slice(0, 160) });
+    const status = (await fetch(`${baseUrl}/models`, { headers: { Authorization: `Bearer ${key}` }, signal: AbortSignal.timeout(10_000) })).status;
+    const list = await preset().listModels(key);
+    rows.push({ preset: name + ' list', result: list ? `read ${list.length} chat models` : 'not read', detail: `GET /models answered ${status}${status === 401 || status === 403 ? ': the service rejected this key' : ''}` });
   } catch (err) { rows.push({ preset: name + ' list', result: 'error', detail: String(err.message).slice(0, 120) }); }
 }
 console.table(rows.map((r) => ({ ...r, usage: r.usage ? JSON.stringify(r.usage) : '' , attempts: r.attempts?.join('; ') ?? '' })));
