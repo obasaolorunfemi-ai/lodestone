@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { cerebras, groq, llmapi, mistral, normalizeLlmapi, normalizeRequesty, ollama, openai, openaiCompatible, requesty, together } from './openaiCompatible.js';
+import { cerebras, groq, llmapi, mistral, normalizeGroq, normalizeLlmapi, normalizeRequesty, ollama, openai, openaiCompatible, requesty, together } from './openaiCompatible.js';
 import { ProviderError } from '../errors.js';
 
 const base = { model: 'm', apiKey: 'secret', maxTokens: 100, signal: new AbortController().signal };
@@ -95,5 +95,13 @@ describe('presets', () => {
   });
   it('are named for the service, so a failure can say which one', () => {
     expect([requesty(), llmapi(), groq(), cerebras(), openai(), mistral(), together(), ollama()].map((p) => p.name)).toEqual(['requesty', 'llmapi', 'groq', 'cerebras', 'openai', 'mistral', 'together', 'ollama']);
+  });
+});
+
+describe('normalizeGroq', () => {
+  it('keeps chat models and leaves out speech, text-to-speech and safety classifiers', () => {
+    const ids = ['openai/gpt-oss-20b', 'qwen/qwen3.8-27b', 'allam-2-7b', 'whisper-large-v3', 'canopylabs/orpheus-v1-english', 'meta-llama/llama-prompt-guard-2-22m', 'openai/gpt-oss-safeguard-20b'];
+    expect(ids.map((id) => normalizeGroq({ id })?.id ?? null)).toEqual(['openai/gpt-oss-20b', 'qwen/qwen3.8-27b', 'allam-2-7b', null, null, null, null]);
+    expect(normalizeGroq({ id: 'x', active: false })).toBeNull();
   });
 });
