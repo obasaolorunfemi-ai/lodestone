@@ -7,6 +7,8 @@ One tiny request per key (a few tokens), so the cost is a fraction of a cent. Ru
 import asyncio
 import os
 import time
+import urllib.error
+import urllib.request
 
 from lodestone import Fallback, Lodestone, OpenRouterConfig, explain, groq, LodestoneError
 
@@ -26,11 +28,25 @@ async def run(label: str, ai: Lodestone) -> dict:
                 "say": explain(err, product="check"), "attempts": "; ".join(attempts)}
 
 
+def diagnose(url: str) -> str:
+    """Status 599 means the request itself failed before any answer. This asks the service for its public model list, with no key, and says what Python itself reports: a 401 means the connection is fine."""
+    try:
+        urllib.request.urlopen(url, timeout=10)  # noqa: S310
+        return "connected, answered 200"
+    except urllib.error.HTTPError as e:
+        return f"connected, the service answered {e.code} (so the network and certificates are fine)"
+    except Exception as e:  # noqa: BLE001
+        return f"could not connect: {type(e).__name__}: {e}"
+
+
 async def main() -> None:
     rows = []
     if os.environ.get("GROQ_API_KEY"):
         ai = Lodestone(fallbacks=[Fallback(groq(), os.environ["GROQ_API_KEY"], ["openai/gpt-oss-20b"], free=True)])
-        rows.append(await run("groq (fallback only)", ai))
+        row = await run("groq (fallback only)", ai)
+        if "599" in row.get("attempts", ""):
+            row["connection"] = diagnose("https://api.groq.com/openai/v1/models")
+        rows.append(row)
     else:
         rows.append({"check": "groq", "result": "skipped: GROQ_API_KEY not set"})
     if os.environ.get("OPENROUTER_API_KEY"):
