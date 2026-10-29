@@ -29,7 +29,7 @@ const navHtml = (path) => {
 };
 
 // The scroll of providers on the home page. A dot says how far each has been checked, the same as the Providers page.
-const STRIP = [['OpenRouter', 'live'], ['Groq', 'live'], ['Requesty', 'list'], ['OmniaKey', 'preset'], ['Cerebras', 'preset'], ['OpenAI', 'preset'], ['Mistral', 'preset'], ['Together', 'preset'], ['Ollama', 'preset'], ['Anthropic', 'preset'], ['Google', 'preset']];
+const STRIP = [['OpenRouter', 'live'], ['Groq', 'live'], ['Requesty', 'list'], ['OmniaKey', 'list'], ['Cerebras', 'preset'], ['OpenAI', 'preset'], ['Mistral', 'preset'], ['Together', 'preset'], ['Ollama', 'preset'], ['Anthropic', 'preset'], ['Google', 'preset']];
 const STRIP_WORDS = { live: 'answered a live call', list: 'model list read', preset: 'preset, not yet called live' };
 const stripItems = STRIP.map(([n, k]) => `<li><i class="dot ${k}"></i>${n}</li>`).join('');
 const providerStrip = `<section class="provider-strip" aria-labelledby="strip-h"><p class="tag" id="strip-h">Calls through</p><div class="marquee" aria-hidden="true"><ul class="marquee-track">${stripItems}${stripItems}</ul></div><ul class="visually-hidden">${STRIP.map(([n, k]) => `<li>${n}: ${STRIP_WORDS[k]}</li>`).join('')}</ul><p class="cap"><span class="key"><i class="dot live"></i>answered a live call</span><span class="key"><i class="dot list"></i>model list read</span><span class="key"><i class="dot preset"></i>preset, not yet called live</span> <a href="/providers/">How far each was checked</a></p></section>`;
@@ -42,7 +42,27 @@ const siteBar = (path) => `<div class="col sitebar-in"><a class="brand" href="/"
 const DOWN = 'https://down.extrafemi.com';
 const badge = (slug, style, w, h, alt) => `<img class="b-light" src="${DOWN}/badge/${slug}.svg?style=${style}&amp;accent=6b1410&amp;bg=fffefb&amp;radius=16" width="${w}" height="${h}" alt="${alt}" loading="lazy" decoding="async"><img class="b-dark" src="${DOWN}/badge/${slug}.svg?style=${style}&amp;theme=dark" width="${w}" height="${h}" alt="${alt}" loading="lazy" decoding="async">`;
 const STATUS_ALT = 'Lodestone status, monitored by Down in Nigeria';
-const slimFoot = () => `<footer class="site-foot slim"><div class="col foot-base"><p>${NAV.map(([h, t]) => `<a href="${h}">${t}</a>`).join(' · ')}</p><p class="badges-row"><a href="${DOWN}/s/lodestone">${badge('lodestone', 'chip', 212, 36, STATUS_ALT)}</a></p><p>Lodestone ${pkg.version} · MIT licence · © 2026 Extrafemi · No cookies, no tracking.</p></div></footer>`;
+/** The footer, the same on every page: the status badge, the brand, the walkthrough, the pages and the project. On the home page the walkthrough links are in-page anchors; elsewhere they point at the home page. The Pages column is read from NAV, so a new page cannot be left out of it. */
+const footHtml = (home) => {
+  const up = home ? '' : '/';
+  const li = (h, t) => `<li><a href="${h}">${t}</a></li>`;
+  const walk = SECTIONS.filter(([id]) => id !== 'weather').map(([id, t]) => li(`${up}#${id}`, t)).join('');
+  const SKIP = new Set(['/', '/changelog/', '/security/', 'https://github.com/obasaolorunfemi-ai/lodestone']);
+  const pages = NAV.filter(([h]) => !SKIP.has(h)).map(([h, t]) => li(h, t)).join('') + li('/docs/python/', 'Python port');
+  const project = [['https://github.com/obasaolorunfemi-ai/lodestone', 'GitHub'], ['https://www.npmjs.com/package/@extrafemi-ai/lodestone', 'npm'], ['/changelog/', 'Changelog'], ['/security/', 'Security'], ['https://naija-eval.extrafemi.com/', 'Naija Eval'], ['https://keystone.extrafemi.com/', 'KeyStone']].map(([h, t]) => li(h, t)).join('');
+  return `<footer class="site-foot">${statusBlock}
+  <div class="col foot-cols">
+    <div><div class="mark">Lodestone</div><p>A small library that keeps AI calls working when a model is withdrawn, slow, rate-limited or down.</p></div>
+    <nav aria-label="The walkthrough"><h3>The walkthrough</h3><ul>${walk}</ul></nav>
+    <nav aria-label="Pages"><h3>Pages</h3><ul>${pages}</ul></nav>
+    <nav aria-label="Project"><h3>Project</h3><ul>${project}</ul></nav>
+  </div>
+  <div class="col foot-base">
+    <p>Lodestone ${pkg.version} · built from commit ${commit} on ${date} · MIT licence. Cardo and Lora are set in the SIL Open Font Licence and are served from this site.</p>
+    <p>© 2026 Extrafemi · No cookies, no tracking. Your light or dark choice is kept in your browser, nowhere else.</p>
+  </div>
+</footer>`;
+};
 const statusBlock = `<section class="col status" aria-labelledby="status-h"><div class="status-head"><h2 id="status-h">Live status</h2><p>Checked around the clock, independently, by <a href="${DOWN}/developers">Down in Nigeria</a>. Tap a badge for its full record.</p></div><div class="status-grid"><a class="stat" href="${DOWN}/s/lodestone"><span class="tag">This site</span><span class="badges">${badge('lodestone', 'card', 272, 84, STATUS_ALT)}${badge('lodestone', 'chip', 212, 36, STATUS_ALT)}</span></a></div></section>`;
 
 // 1. The failure kinds, with the library's own sentences.
@@ -88,7 +108,7 @@ const providers = [
   ['groq()', 'Groq', 'ok', 'a chat call answered live on 28 Oct 2026 (openai/gpt-oss-20b, about 1 s); the model list was read, 11 entries of which 4 are chat models', 'the list also holds speech and safety models, which Lodestone now leaves out; the model Lodestone first listed, llama-3.3-70b-versatile, had been withdrawn (a 404, reported as withdrawn)'],
   ['requesty()', 'Requesty', 'warn', 'key accepted and the model list read live (807 chat models, with price, lab and data policy)', 'the chat call was refused with 402, payment required, because the account had no credit, so no answer has been seen from it'],
   ['llmapi()', 'LLM API', 'ok', 'model list read live (152 chat of 393 models; image, video, speech and embedding ignored)', 'chat call not made: no key'],
-  ['omniakey()', 'OmniaKey', 'warn', 'a preset for its OpenAI-compatible text endpoint; its model list answers 401 without a key', 'not called live yet; image, video and music models are outside what Lodestone does'],
+  ['omniakey()', 'OmniaKey', 'warn', 'key accepted and the model list read live on 29 Oct 2026 (98 entries)', 'the list mixes chat, image, video and music models with nothing to tell them apart, so name your models and do not use discovery with it; the chat call was refused with 403, insufficient quota, because the account had no credit, so no answer has been seen from it'],
   ['cerebras()', 'Cerebras', 'warn', 'endpoint answers (needs a key); free-tier terms not checked', 'untested with a key'],
   ['openai(), mistral(), together()', 'the providers themselves', 'warn', 'endpoint answers (needs a key)', 'untested with a key'],
   ['ollama()', 'a local server', 'warn', 'the standard local endpoint', 'untested here'],
@@ -151,7 +171,7 @@ const ticker = ['<b>0</b> dependencies', 'runs on Node, Workers, Deno and Bun', 
 rmSync(out, { recursive: true, force: true });
 mkdirSync(out, { recursive: true });
 const html = readFileSync(join(here, 'src/index.html'), 'utf8')
-  .replaceAll('{{v}}', v).replaceAll('{{sitebar}}', siteBar('')).replaceAll('{{status}}', statusBlock).replaceAll('{{provider_strip}}', providerStrip).replaceAll('{{ticker}}', ticker).replaceAll('{{kinds}}', String(kinds)).replaceAll('{{Kinds}}', WORD[kinds] ?? String(kinds)).replaceAll('{{version}}', pkg.version).replaceAll('{{commit}}', commit).replaceAll('{{date}}', date)
+  .replaceAll('{{v}}', v).replaceAll('{{sitebar}}', siteBar('')).replaceAll('{{footer}}', footHtml(true)).replaceAll('{{provider_strip}}', providerStrip).replaceAll('{{ticker}}', ticker).replaceAll('{{kinds}}', String(kinds)).replaceAll('{{Kinds}}', WORD[kinds] ?? String(kinds)).replaceAll('{{version}}', pkg.version).replaceAll('{{commit}}', commit).replaceAll('{{date}}', date)
   .replace('{{providers}}', providers).replace('{{vet}}', vet).replace('{{filemap}}', filemap)
   .replace('{{data}}', JSON.stringify({ errors }).replace(/</g, '\\u003c'));
 writeFileSync(join(out, 'index.html'), html);
@@ -243,7 +263,7 @@ ${css1}${scripts}</head>
 <main id="main" class="doc${wide ? ' wide' : ''}">${crumbs ? '<p class="crumbs tag"><a href="/docs/">Docs</a></p>' : ''}
 ${body}
 </main>
-${slimFoot()}
+${footHtml(false)}
 </body></html>
 `;
 
@@ -432,5 +452,5 @@ ${DOCS.filter((d) => d.path.startsWith('docs/')).map((d) => `- [${d.title}](${SI
 - [Everything in one file](${SITE}/llms-full.txt)
 `);
 writeFileSync(join(out, 'llms-full.txt'), ['README.md', ...DOCS.map((d) => d.file)].map((f) => `<!-- ${f} -->\n${readFileSync(join(root, f), 'utf8')}`).join('\n\n---\n\n'));
-writeFileSync(join(out, '404.html'), readFileSync(join(here, 'src/404.html'), 'utf8').replaceAll('{{v}}', v).replaceAll('{{sitebar}}', siteBar('404')).replaceAll('{{foot}}', slimFoot()));
+writeFileSync(join(out, '404.html'), readFileSync(join(here, 'src/404.html'), 'utf8').replaceAll('{{v}}', v).replaceAll('{{sitebar}}', siteBar('404')).replaceAll('{{foot}}', footHtml(false)));
 console.log(`site/public: Lodestone ${pkg.version} @ ${commit}, ${kinds} failure kinds, ${pages.length} pages, ${files.length} source files, ${rows.length} trust rows`);

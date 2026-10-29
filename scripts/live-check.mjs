@@ -35,7 +35,7 @@ for (const [name, key, preset, models, baseUrl] of checks) {
     const status = (await fetch(`${baseUrl}/models`, { headers: { Authorization: `Bearer ${key}` }, signal: AbortSignal.timeout(10_000) })).status;
     const list = await preset().listModels(key);
     if (list && name === 'omniakey()') console.log(`${name} chat models (first 60): ${list.slice(0, 60).map((m) => m.id).join(', ')}`);
-    rows.push({ preset: name + ' list', result: list ? `read ${list.length} chat models` : 'not read', detail: `GET /models answered ${status}${status === 401 || status === 403 ? ': the service rejected this key' : ''}` });
+    rows.push({ preset: name + ' list', result: list ? `read ${list.length} models` : 'not read', detail: `GET /models answered ${status}${status === 401 || status === 403 ? ': the service rejected this key' : ''}` });
   } catch (err) { rows.push({ preset: name + ' list', result: 'error', detail: String(err.message).slice(0, 120) }); }
 }
 console.table(rows.map((r) => ({ ...r, usage: r.usage ? JSON.stringify(r.usage) : '' , attempts: r.attempts?.join('; ') ?? '' })));

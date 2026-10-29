@@ -4,7 +4,7 @@ Versions before 1.0 may change between minor releases; each change that could br
 
 ## Unreleased
 
-- **`omniakey()` preset** (TypeScript and Python) for [OmniaKey](https://omniakey.com), a prepaid gateway with an OpenAI-compatible text endpoint. Use it as a `fallbacks` entry. It is a preset only: it has not been called live yet (its model list needs a key), so it is marked that way on the Providers page. Text and JSON calls only; OmniaKey's image, video and music models are outside what Lodestone does.
+- **`omniakey()` preset** (TypeScript and Python) for [OmniaKey](https://omniakey.com), a prepaid gateway with an OpenAI-compatible text endpoint. Use it as a `fallbacks` entry. It is a preset only: a key was accepted and its model list read (98 entries, with image, video and music models mixed in and nothing to tell them apart, so name your models and do not use `discover` with it), but the first chat call was refused with `insufficient_user_quota`, so it has not been seen to answer, and the Providers page says so. Text and JSON calls only; OmniaKey's image, video and music models are outside what Lodestone does.
 
 ## 0.7.0
 
