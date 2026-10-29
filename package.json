@@ -1,6 +1,6 @@
 {
   "name": "@extrafemi-ai/lodestone",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "description": "Calls AI models so your tool keeps working when a model is withdrawn, slow, rate-limited or down: failover across providers, self-updating model lists, spend limits.",
   "license": "MIT",
   "repository": {
@@ -40,10 +40,13 @@
     "test": "vitest run",
     "prepublishOnly": "npm run typecheck && npm run typecheck:examples && npm test && npm run build",
     "typecheck:examples": "tsc -p tsconfig.examples.json",
-    "site": "npm run build && node site/build.mjs"
+    "site": "npm run build && node site/build.mjs",
+    "smoke": "npm run build && node scripts/smoke.mjs",
+    "smoke:workers": "node scripts/run-workers.mjs"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",
+    "miniflare": "^4.20260730.0",
     "typescript": "^5.6.0",
     "vitest": "^4.1.12"
   },

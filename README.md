@@ -85,10 +85,10 @@ When a later phase exists, the free models get a short turn (9 s in all by defau
 
 ### Keeping the catalogue fresh
 
-Give it somewhere to keep the catalogue (anything that can get and set JSON by key; the default is memory), and run `checkModels()` once a day:
+Give it somewhere to keep the catalogue (anything that can get and set JSON by key; the default is memory). Adapters for Netlify Blobs, Cloudflare KV, Upstash (and Vercel KV) and Deno KV are included, see [docs/stores.md](docs/stores.md). Run `checkModels()` once a day:
 
 ```ts
-const ai = createLodestone({ store: { get: (k) => blobs.get(k, { type: 'json' }), set: (k, v) => blobs.setJSON(k, v) }, /* ... */ });
+const ai = createLodestone({ store: netlifyBlobsStore(getStore('lodestone')), /* ... */ });
 
 // daily
 const { ok, withdrawn, shortTiers } = await ai.checkModels();
@@ -115,16 +115,24 @@ A model whose last three attempts (within ten minutes) all failed is skipped, so
 ### Limiting what the platform spends
 
 ```ts
-const ai = createLodestone({
-  /* ... */
-  spend: {
-    allow: async ({ model, phase }) => (await spentToday()) < DAILY_LIMIT_USD,
-    record: async ({ costUsd }) => addToday(costUsd ?? 0),
-  },
-});
+const spend = createSpendLimit({ store, dailyUsd: 2, monthlyUsd: 30 });
+const ai = createLodestone({ /* ... */, spend });
 ```
 
 `allow` is asked before each attempt that spends the platform's money (the paid models and fallback providers on the platform's keys), and a `false` means that model is not used. `record` is told what each such call cost: the provider's own figure when it gives one (OpenRouter does), otherwise an estimate from the model's catalogue price. Free models and a caller's own key (their money, not yours) never go through either. When the limit stops every paid option the error is `kind: 'budget'`. A `record` that throws never fails the answer.
+
+`createSpendLimit` takes a **hold** for each paid attempt as it is allowed and counts holds against the limit, so a burst of concurrent requests cannot all pass the check before any has been counted. The hold is swapped for the real cost on an answer and given back (`release`) when the attempt fails. You can write your own `{ allow, record, release? }`; each receives an `id` naming the attempt.
+
+### One person emptying the budget (`rateLimit`)
+
+A spend limit is one pot for everybody. Give each caller their own allowance, and name the caller on each call:
+
+```ts
+const ai = createLodestone({ /* ... */, rateLimit: { limiter: createRateLimiter({ store, max: 20, windowMs: 3_600_000 }), whenOver: 'free-only' } });
+await ai.complete({ prompt, caller: userId ?? clientIp });
+```
+
+Over their allowance a caller gets `kind: 'throttled'` (`'reject'`, the default) or free models only (`'free-only'`). Only a hash of the caller is stored. See [docs/protecting-your-budget.md](docs/protecting-your-budget.md) for what is exact and what is approximate.
 
 ### Providers, and not depending on one
 
@@ -153,7 +161,17 @@ Model ids are each service's own. See [examples/multi-provider.ts](examples/mult
 - **Outdated or shut down.** The daily `checkModels()` saves each provider's current catalogue. A model the provider no longer lists is dropped; one with an expiry date within a week (OpenRouter publishes it) is left out; one that is failing right now is skipped by the circuit breaker. Nobody edits a list.
 - **New models.** `discover: { fill }` tops a short list up from the provider's own catalogue with models within a price limit ("free" is a limit of zero) from trusted labs. For OpenRouter's free models this happens by itself.
 - **Not a longer wait.** Discovery never lengthens what a request walks. A background pool (up to 8 per tier) is ranked, the models that are down are filtered out, and a request tries at most three. When one fails, the next best takes its place for later requests, so adding models adds choice, not delay.
-- **Safe by default.** A discovered model is used only if its publisher is on the trust list; `trust` also takes a block list, refuses models a provider says are trained on or that keep prompts too long, and `private: true` applies the same to one call. There is no vulnerability database for hosted models, so none is claimed: see [SECURITY.md](SECURITY.md) for exactly what is and is not checked.
+- **Safe by default.** A discovered model is used only if its publisher is on the trust list; `trust` also takes a block list, refuses models a provider says are trained on or that keep prompts too long, and `private: true` applies the same to one call (see below). There is no vulnerability database for hosted models, so none is claimed: see [SECURITY.md](SECURITY.md) for exactly what is and is not checked.
+
+### Private calls (`private: true`)
+
+For a prompt that must not be kept or trained on (a CV, a medical note). What it does, exactly:
+
+- OpenRouter is told to use only providers that do not keep or train on the prompt (`data_collection: deny`).
+- A fallback provider is used only if its own model list says the model is not trained on (Requesty publishes this), **or** you vouched for it with `privacy: 'no-training'` on that fallback. A provider that publishes nothing and that you have not vouched for is skipped, even if you set no `trust` policy. Lodestone cannot see what a provider does with a prompt unless the provider says.
+- The answer is never read from or written to the cache.
+- Its failures are not counted against a model (few providers can meet the rule, and that says nothing about the model).
+- An explicit `route` is your own choice of provider and is passed through as told.
 
 ### Cancelling
 
@@ -165,7 +183,11 @@ await ai.complete({ prompt, signal: controller.signal });   // throws a Lodeston
 
 ### Where it runs
 
-Lodestone uses only `fetch`, `AbortSignal` and `URL`, with no Node-specific APIs, so it should run on Cloudflare Workers, Deno and edge runtimes too. **It is tested on Node 20 and 22 only.** Reports from other runtimes are welcome.
+Lodestone uses only web-standard APIs and has no dependencies. CI runs the same smoke checks on Node 20, 22 and 24, on Cloudflare Workers (in `workerd`, without the Node compatibility flag), on Deno and on Bun. See [docs/runtimes.md](docs/runtimes.md) for what that does and does not show.
+
+### Python
+
+`python/` holds a Python port of the core: failover, the time budget, the circuit breaker, spend holds, per-caller rate limits, private calls and `explain()`, using only the standard library. It is alpha and does not yet read provider model lists or support images. See [python/README.md](python/README.md).
 
 ### Not yet
 
@@ -178,7 +200,7 @@ A scorecard (a small JSON file of measured results) can put the models that did 
 
 ### Caching
 
-Pass `cacheKey` for a pure, repeatable task (for example a hash of a job page) and the answer is saved in the store and reused for `cacheTtlMs` (a day by default). Failures are never cached.
+Pass `cacheKey` for a pure, repeatable task (for example a hash of a job page) and the answer is saved in the store and reused for `cacheTtlMs` (a day by default). The key must stand for the whole input; as a safeguard an answer is also tied to a fingerprint of the system prompt, messages and tier, so a key that is too coarse gives a miss, never another input's answer. Failures are never cached, and **a call marked `private` is never read from or written to the cache**.
 
 ### Observing it
 
@@ -186,7 +208,7 @@ Pass `cacheKey` for a pure, repeatable task (for example a hash of a job page) a
 
 ## Errors
 
-`complete()` and `json()` throw a `LodestoneError` whose `kind` is one of `auth`, `rate_limit`, `slow`, `credit`, `withdrawn`, `unavailable`, `bad_output`, `not_configured` or `other`. `detail` carries the HTTP status and, for rate limits, which kind it was. `explain(err, { product, settingsHint })` turns any of them into a message for a person.
+`complete()` and `json()` throw a `LodestoneError` whose `kind` is one of `auth`, `rate_limit`, `slow`, `credit`, `withdrawn`, `unavailable`, `bad_output`, `aborted`, `budget`, `throttled`, `not_configured` or `other`. `detail` carries the HTTP status and, for rate limits, which kind it was. `explain(err, { product, settingsHint })` turns any of them into a message for a person.
 
 ## Develop
 
@@ -196,7 +218,7 @@ npm test
 npm run build
 ```
 
-Releases: bump `version` in `package.json`, then push a tag (`git tag v0.1.0 && git push --tags`). The release workflow tests, builds and publishes to npm with provenance. It uses npm trusted publishing, so there is no token to keep: npm trusts this repository and `release.yml` directly (set up under the package's Settings on npmjs.com).
+`npm run smoke` and `npm run smoke:workers` run the cross-runtime checks. Releases: bump `version` in `package.json`, then push a tag (`git tag v0.1.0 && git push --tags`). The release workflow tests, builds and publishes to npm with provenance. It uses npm trusted publishing, so there is no token to keep: npm trusts this repository and `release.yml` directly (set up under the package's Settings on npmjs.com).
 
 ## Licence
 
