@@ -484,3 +484,10 @@ a.card.go:hover h3 { color: var(--ox); }
 @media (max-width: 860px) {
   .doc.wide > h1, .doc.wide > .lead { grid-column: 1 / -1; grid-row: auto; }
 }
+
+/* The model row runs the other way */
+@keyframes tick-rev { from { transform: translateX(-50%); } to { transform: translateX(0); } }
+.marquee.rev .marquee-track { animation-name: tick-rev; animation-duration: 75s; }
+.marquee-track li small { font: 500 .72rem/1 var(--f-body); letter-spacing: .14em; text-transform: uppercase; color: var(--ink-3); }
+.strip-2 { margin-top: 10px; }
+#model-track li { font-size: clamp(1.1rem, 1rem + .6vw, 1.5rem); }
