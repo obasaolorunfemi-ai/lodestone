@@ -31,10 +31,14 @@ class ProviderReply:
     cost_usd: Optional[float] = None
 
 
+# Python's default User-Agent ("Python-urllib/3.x") is refused (403) by providers behind Cloudflare, such as Groq, so every request names itself.
+USER_AGENT = "lodestone-python/0.1 (+https://lodestone.extrafemi.com)"
+
+
 def _post(url: str, headers: dict, body: dict, timeout_s: float) -> dict:
     if not url.startswith(("https://", "http://localhost", "http://127.0.0.1")):
         raise ProviderError(599, "refusing to send a key over plain http")
-    req = urllib.request.Request(url, data=json.dumps(body).encode(), headers={"Content-Type": "application/json", **headers}, method="POST")
+    req = urllib.request.Request(url, data=json.dumps(body).encode(), headers={"Content-Type": "application/json", "User-Agent": USER_AGENT, **headers}, method="POST")
     try:
         with urllib.request.urlopen(req, timeout=timeout_s) as r:  # noqa: S310 - scheme checked above
             return json.loads(r.read())

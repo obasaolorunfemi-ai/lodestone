@@ -10,7 +10,8 @@ import time
 import urllib.error
 import urllib.request
 
-from lodestone import Fallback, Lodestone, OpenRouterConfig, explain, groq, LodestoneError
+from lodestone import Fallback, Lodestone, LodestoneError, OpenRouterConfig, explain, groq
+from lodestone.providers import USER_AGENT
 
 PROMPT = 'Reply with only this JSON: {"ok":true}'
 ok = lambda v: isinstance(v, dict) and v.get("ok") is True  # noqa: E731
@@ -31,7 +32,7 @@ async def run(label: str, ai: Lodestone) -> dict:
 def diagnose(url: str) -> str:
     """Status 599 means the request itself failed before any answer. This asks the service for its public model list, with no key, and says what Python itself reports: a 401 means the connection is fine."""
     try:
-        urllib.request.urlopen(url, timeout=10)  # noqa: S310
+        urllib.request.urlopen(urllib.request.Request(url, headers={"User-Agent": USER_AGENT}), timeout=10)  # noqa: S310
         return "connected, answered 200"
     except urllib.error.HTTPError as e:
         return f"connected, the service answered {e.code} (so the network and certificates are fine)"

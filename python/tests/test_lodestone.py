@@ -321,7 +321,7 @@ class _Handler(BaseHTTPRequestHandler):
 
     def do_POST(self):
         body = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
-        _Handler.seen.append({"path": self.path, "auth": self.headers["Authorization"], "body": body})
+        _Handler.seen.append({"path": self.path, "auth": self.headers["Authorization"], "agent": self.headers["User-Agent"], "body": body})
         if body["model"] == "bad":
             payload, code = json.dumps({"error": {"message": "no credit"}}), 402
         else:
@@ -350,6 +350,7 @@ class RealHttp(unittest.IsolatedAsyncioTestCase):
         seen = _Handler.seen[0]
         self.assertEqual(seen["path"], "/v1/chat/completions")
         self.assertEqual(seen["auth"], "Bearer secret-key")
+        self.assertTrue(seen["agent"].startswith("lodestone-python/"), seen["agent"])  # not Python-urllib, which Cloudflare-fronted providers refuse
         self.assertEqual(seen["body"]["messages"][0], {"role": "system", "content": "be brief"})
 
     async def test_an_error_status_becomes_a_provider_error_without_the_key(self):

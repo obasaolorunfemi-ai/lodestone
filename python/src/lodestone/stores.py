@@ -52,7 +52,7 @@ class UpstashStore:
 
     def _send(self, path: str, body: Any) -> Any:
         req = urllib.request.Request(self._url + path, data=json.dumps(body).encode(), method="POST",
-                                     headers={"Authorization": f"Bearer {self._token}", "Content-Type": "application/json"})
+                                     headers={"Authorization": f"Bearer {self._token}", "Content-Type": "application/json", "User-Agent": "lodestone-python/0.1 (+https://lodestone.extrafemi.com)"})
         try:
             with urllib.request.urlopen(req, timeout=self._timeout) as r:  # noqa: S310 - https only, checked in __init__
                 return json.loads(r.read())
