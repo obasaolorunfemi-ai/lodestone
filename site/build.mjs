@@ -14,7 +14,25 @@ const lib = await import(join(root, 'dist/index.js'));
 const pkg = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'));
 const RUNS_ON = JSON.parse(readFileSync(join(here, 'src/runs-on.json'), 'utf8'));
 const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+const SITE = 'https://lodestone.extrafemi.com';
 const GH_URL = 'https://github.com/obasaolorunfemi-ai/lodestone';
+/** Structured data for search engines: a breadcrumb for every page below the home page, and for the documents a TechArticle. It is data, not script, so the content policy leaves it alone. */
+const ldJson = (o) => `<script type="application/ld+json">${JSON.stringify(o).replace(/</g, '\\u003c')}</script>`;
+const DOC_PATHS = new Set(['docs/stores', 'docs/protecting-your-budget', 'docs/runtimes', 'docs/python', 'docs/scorecards', 'security', 'changelog']);
+const ldPage = (path, title, desc) => {
+  if (!path || path === '404') return '';
+  const crumbs = [{ '@type': 'ListItem', position: 1, name: 'Lodestone', item: `${SITE}/` }];
+  if (path.startsWith('docs/')) crumbs.push({ '@type': 'ListItem', position: 2, name: 'Docs', item: `${SITE}/docs/` });
+  crumbs.push({ '@type': 'ListItem', position: crumbs.length + 1, name: title, item: `${SITE}/${path}/` });
+  const graph = [{ '@context': 'https://schema.org', '@type': 'BreadcrumbList', itemListElement: crumbs }];
+  if (DOC_PATHS.has(path)) graph.push({ '@context': 'https://schema.org', '@type': 'TechArticle', headline: title, description: desc, url: `${SITE}/${path}/`, inLanguage: 'en', isPartOf: { '@type': 'WebSite', name: 'Lodestone', url: `${SITE}/` }, publisher: { '@type': 'Organization', name: 'Extrafemi', url: 'https://www.extrafemi.com/' } });
+  return graph.map(ldJson).join('');
+};
+const homeLd = ldJson({ '@context': 'https://schema.org', '@graph': [
+  { '@type': 'WebSite', '@id': `${SITE}/#site`, url: `${SITE}/`, name: 'Lodestone', description: 'Reliable AI calls for tools, running serverless.', inLanguage: 'en', publisher: { '@id': `${SITE}/#org` } },
+  { '@type': 'Organization', '@id': `${SITE}/#org`, name: 'Extrafemi', url: 'https://www.extrafemi.com/' },
+  { '@type': 'SoftwareSourceCode', '@id': `${SITE}/#code`, name: 'Lodestone', description: 'A small library that keeps calls to AI models working inside a time limit: failover across models and providers, spend limits and plain-language errors. No dependencies.', url: `${SITE}/`, codeRepository: GH_URL, programmingLanguage: ['TypeScript', 'Python'], license: 'https://opensource.org/license/mit', version: pkg.version, runtimePlatform: ['Node.js', 'Cloudflare Workers', 'Deno', 'Bun'], isAccessibleForFree: true, publisher: { '@id': `${SITE}/#org` } },
+] });
 /** Every link on the site, in groups: [title, description]. The menu and the footer both read this, so a page is added once. */
 const PAGES = {
   home: ['/', 'Home', 'The short version'],
@@ -208,7 +226,7 @@ const ticker = ['<b>0</b> dependencies', 'runs on Node, Workers, Deno and Bun', 
 rmSync(out, { recursive: true, force: true });
 mkdirSync(out, { recursive: true });
 const html = readFileSync(join(here, 'src/index.html'), 'utf8')
-  .replaceAll('{{v}}', v).replaceAll('{{sitebar}}', siteBar('')).replaceAll('{{footer}}', footHtml(true)).replaceAll('{{provider_strip}}', providerStrip).replaceAll('{{ticker}}', ticker).replaceAll('{{kinds}}', String(kinds)).replaceAll('{{Kinds}}', WORD[kinds] ?? String(kinds)).replaceAll('{{version}}', pkg.version).replaceAll('{{commit}}', commit).replaceAll('{{date}}', date)
+  .replaceAll('{{v}}', v).replaceAll('{{sitebar}}', siteBar('')).replaceAll('{{ld}}', homeLd).replaceAll('{{footer}}', footHtml(true)).replaceAll('{{provider_strip}}', providerStrip).replaceAll('{{ticker}}', ticker).replaceAll('{{kinds}}', String(kinds)).replaceAll('{{Kinds}}', WORD[kinds] ?? String(kinds)).replaceAll('{{version}}', pkg.version).replaceAll('{{commit}}', commit).replaceAll('{{date}}', date)
   .replace('{{providers}}', providers).replace('{{vet}}', vet).replace('{{filemap}}', filemap)
   .replace('{{data}}', JSON.stringify({ errors }).replace(/</g, '\\u003c'));
 writeFileSync(join(out, 'index.html'), html);
@@ -219,6 +237,7 @@ copyFileSync(join(here, 'src/menu.js'), join(out, 'menu.js'));
 cpSync(join(here, 'src/fonts'), join(out, 'fonts'), { recursive: true });
 copyFileSync(join(here, 'src/favicon.svg'), join(out, 'favicon.svg'));
 copyFileSync(join(here, 'src/runs-on.js'), join(out, 'runs-on.js'));
+copyFileSync(join(here, 'src/og-card.png'), join(out, 'og-card.png'));
 cpSync(join(here, 'src/logos'), join(out, 'logos'), { recursive: true, filter: (f) => !f.endsWith('README.md') });
 // connect-src lists exactly the origins of the live summaries named in runs-on.json (the home page's weather reads KeyStone's too).
 const connectOrigins = [...new Set([...RUNS_ON.map((r) => r.weather).filter(Boolean), 'https://keystone.extrafemi.com/api/ai-weather'].map((u) => new URL(u).origin))];
@@ -226,16 +245,15 @@ writeFileSync(join(out, '_headers'), readFileSync(join(here, 'src/_headers'), 'u
 copyFileSync(join(here, 'src/robots.txt'), join(out, 'robots.txt'));
 
 // 6. Documentation pages, built from the repository's own markdown, so they cannot drift from it.
-const SITE = 'https://lodestone.extrafemi.com';
 const GH = 'https://github.com/obasaolorunfemi-ai/lodestone/blob/main/';
 const DOCS = [
   { path: 'docs/stores', file: 'docs/stores.md', title: 'Stores', desc: 'Where Lodestone keeps the catalogue, the circuit breaker and counters: Netlify Blobs, Cloudflare KV, Upstash and Deno KV adapters.' },
   { path: 'docs/protecting-your-budget', file: 'docs/protecting-your-budget.md', title: 'Protecting your budget on a public tool', desc: 'Per-caller allowances, a spend limit that holds under a burst, and what is exact and what is approximate.' },
   { path: 'docs/runtimes', file: 'docs/runtimes.md', title: 'Runtimes', desc: 'Node, Cloudflare Workers, Deno and Bun: how each is checked and what that does and does not show.' },
-  { path: 'docs/python', file: 'python/README.md', title: 'Lodestone for Python', desc: 'The alpha Python port: what it does and what it does not do yet.' },
+  { path: 'docs/python', file: 'python/README.md', title: 'Lodestone for Python', desc: 'Lodestone for Python: failover, a time budget, spend limits and plain-language errors with no dependencies. An alpha port; what it lacks is listed.' },
   { path: 'docs/scorecards', file: 'docs/scorecards.md', title: 'Scorecards', desc: 'The two JSON formats that let an evaluator and Lodestone feed each other.' },
   { path: 'security', file: 'SECURITY.md', title: 'Security', desc: 'How to report a problem, what the package does for supply-chain safety, and exactly what is and is not checked.' },
-  { path: 'changelog', file: 'CHANGELOG.md', title: 'Changelog', desc: 'What changed in each version, and what was breaking.' },
+  { path: 'changelog', file: 'CHANGELOG.md', title: 'Changelog', desc: 'Every Lodestone version and what changed in it, with the changes that could break your code marked clearly.' },
 ];
 const byFile = new Map(DOCS.map((d) => [d.file, d]));
 const slug = (t) => t.toLowerCase().replace(/<[^>]+>/g, '').replace(/[^a-z0-9 -]/g, '').trim().replace(/ +/g, '-');
@@ -288,12 +306,32 @@ function md(src, fromFile) {
 }
 
 const css1 = `<link rel="icon" href="/favicon.svg" type="image/svg+xml"><link rel="stylesheet" href="/fonts/fonts.css"><link rel="stylesheet" href="/style.css?v=${v}"><script src="/theme.js?v=${v}"></script><script src="/menu.js?v=${v}" defer></script>`;
+/** What a search result shows for each page: more specific than the page's name. */
+const SEO_TITLE = {
+  docs: 'Lodestone docs: stores, budgets, runtimes, Python',
+  'docs/stores': 'Lodestone stores: Netlify Blobs, Cloudflare KV, Upstash',
+  'docs/protecting-your-budget': 'Protecting your AI budget on a public tool · Lodestone',
+  'docs/runtimes': 'Lodestone runtimes: Node, Workers, Deno and Bun',
+  'docs/python': 'Lodestone for Python: AI failover port (alpha)',
+  'docs/scorecards': 'Scorecards: pick AI models by measured quality · Lodestone',
+  security: 'Lodestone security: reporting and supply chain',
+  changelog: 'Lodestone changelog: every version and breaking change',
+  providers: 'AI providers Lodestone supports, and how far each was checked',
+  'model-lists': 'Model lists that keep themselves alive · Lodestone',
+  'when-everything-fails': 'When every AI model fails: plain-language errors · Lodestone',
+  limits: 'What Lodestone does not do yet: honest limits',
+  'getting-smarter': 'Getting smarter: scorecards choose the model order · Lodestone',
+  'using-it': 'Using Lodestone: one setup, task-named AI calls',
+  'where-it-runs': 'Where Lodestone runs: Netlify, Workers, Vercel, Render',
+  'runs-on-lodestone': 'Tools that run on Lodestone: KeyStone, TouchStone',
+  'code-map': 'Lodestone code map: where each piece lives',
+};
 const page = ({ path, title, desc, body, crumbs = true, wide = false, scripts = '', side = '', stacked = false }) => `<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>${esc(title)} · Lodestone</title>
+<title>${esc(SEO_TITLE[path] ?? `${title} · Lodestone`)}</title>
 <meta name="description" content="${esc(desc)}">
 <link rel="canonical" href="${SITE}/${path}${path ? '/' : ''}">
-<meta property="og:type" content="article"><meta property="og:site_name" content="Lodestone"><meta property="og:title" content="${esc(title)} · Lodestone"><meta property="og:description" content="${esc(desc)}"><meta property="og:url" content="${SITE}/${path}/">
+<meta name="robots" content="index,follow,max-image-preview:large"><meta property="og:type" content="article"><meta property="og:site_name" content="Lodestone"><meta property="og:title" content="${esc(SEO_TITLE[path] ?? `${title} · Lodestone`)}"><meta property="og:description" content="${esc(desc)}"><meta property="og:url" content="${SITE}/${path}/"><meta property="og:image" content="${SITE}/og-card.png"><meta property="og:image:width" content="1200"><meta property="og:image:height" content="630"><meta property="og:image:alt" content="Lodestone: 1 in 15 free-model attempts gave a usable answer. Reliable AI calls for tools, running serverless."><meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="${esc(SEO_TITLE[path] ?? `${title} · Lodestone`)}"><meta name="twitter:description" content="${esc(desc)}"><meta name="twitter:image" content="${SITE}/og-card.png">${ldPage(path, title, desc)}
 <meta name="theme-color" content="#fdfcf9" media="(prefers-color-scheme: light)"><meta name="theme-color" content="#12110e" media="(prefers-color-scheme: dark)">
 ${css1}${scripts}</head>
 <body><a class="skip" href="#main">Skip to content</a>
@@ -334,11 +372,11 @@ pages.splice(1, 0, { loc: '/docs/', lastmod: date });
 const providersCap = 'A "model list read" means Lodestone\'s reader was run against the service\'s real list and parsed it correctly. A chat call has been seen to answer only on Groq (and on OpenRouter, in production); the others are tested against fakes of the documented request, not against the service itself. A live check on 28 October 2026 is how the withdrawn Groq model and the non-chat entries in its list were found, which is why those are in the notes. Requesty and LLM API have no free models; they add redundancy on the paid path. Free redundancy comes from providers with free tiers, such as Groq and Cerebras.';
 
 const failList = errors.filter((e) => !e.hidden).map((e) => `<details><summary><code>${esc(e.kind)}</code><span>${esc(e.what)}</span></summary><p class="say">“${esc(e.say)}”</p></details>`).join('');
-const runCard = (r) => `<div class="fam-card"><span class="tag">${r.kind === 'runs' ? 'Runs on Lodestone' : 'Feeds scorecards to Lodestone'}</span><h2><a href="${esc(r.url)}">${esc(r.name)}</a></h2><p>${esc(r.description)}</p>${r.weather ? `<p class="live-line" data-weather="${esc(r.weather)}">Reading the live counts…</p>` : ''}<p class="go"><a href="${esc(r.url)}">${esc(r.url.replace(/^https:\/\//, '').replace(/\/$/, ''))}</a></p></div>`;
+const runCard = (r) => `<div class="fam-card"><span class="tag">${r.kind === 'runs' ? 'Runs on Lodestone' : 'Feeds scorecards to Lodestone'}</span><div class="fam-head">${r.logo ? `<img class="logo logo-img" src="/logos/${esc(r.logo)}" alt="" width="40" height="40">` : ''}<h2><a href="${esc(r.url)}">${esc(r.name)}</a></h2></div><p>${esc(r.description)}</p>${r.weather ? `<p class="live-line" data-weather="${esc(r.weather)}">Reading the live counts…</p>` : ''}<p class="go"><a href="${esc(r.url)}">${esc(r.url.replace(/^https:\/\//, '').replace(/\/$/, ''))}</a></p></div>`;
 const extras = [
   { path: 'providers', title: 'Providers', desc: 'Every fallback provider Lodestone has a preset for, and exactly how far each has been checked.', wide: true,
     body: `<h1>Providers</h1><p class="lead">Any service that speaks OpenAI's chat API works through <code>openaiCompatible()</code>, and presets exist for the ones Lodestone has been checked against. Here is exactly how far each check went.</p><div class="tablewrap"><table><thead><tr><th>Preset</th><th>Service</th><th>What was checked</th></tr></thead><tbody>${providers}</tbody></table></div><p class="cap">${esc(providersCap)}</p><p class="cap">Checking a provider yourself: <code>node scripts/live-check.mjs</code> in the repository calls each one once with keys from your environment and prints what happened, without printing a key.</p>` },
-  { path: 'model-lists', title: 'Model lists', desc: 'How Lodestone keeps a provider\'s model list alive, short and safe: models that are gone drop out, a pool of eight with three tried, and a trust policy checked by the library itself.', wide: true,
+  { path: 'model-lists', title: 'Model lists', desc: 'How Lodestone keeps a provider\'s model list alive, short and safe: gone models drop out, a pool of eight with three tried, and a trust policy.', wide: true,
     body: `<h1>Lists that keep themselves alive</h1><p class="lead">A model list that nobody edits goes stale; one that fills itself can grow until it is slow, or admit something you would not choose. Lodestone does the first and bounds the second.</p>
 <div class="three">
 <div class="card"><span class="tag">Alive</span><h3>Outdated models drop out</h3><p>A daily <code>checkModels()</code> saves each provider's catalogue. A model it no longer lists is dropped. One with an expiry date within a week is left out (OpenRouter publishes the date; 14 models carried one the day this was written). One failing right now is skipped by the breaker.</p></div>
