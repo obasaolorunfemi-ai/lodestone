@@ -142,7 +142,7 @@ window.addEventListener('beforeprint', () => document.querySelectorAll('.rise').
   addEventListener('resize', update);
   update();
 
-  const links = [...document.querySelectorAll('.onpage a[href^="#"]')];
+  const links = [...document.querySelectorAll('.sections a[href^="#"]')];
   const targets = links.map((a) => $(a.hash.slice(1))).filter(Boolean);
   const so = new IntersectionObserver((es) => {
     const vis = es.filter((e) => e.isIntersecting).sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
@@ -150,8 +150,6 @@ window.addEventListener('beforeprint', () => document.querySelectorAll('.rise').
     links.forEach((a) => {
       if (a.hash === '#' + vis[0].target.id) {
         a.setAttribute('aria-current', 'location');
-        const nav = a.parentElement, l = a.offsetLeft - nav.offsetLeft;
-        if (l < nav.scrollLeft || l + a.offsetWidth > nav.scrollLeft + nav.clientWidth) nav.scrollTo({ left: l - 12, behavior: 'smooth' });
       } else a.removeAttribute('aria-current');
     });
   }, { rootMargin: '-35% 0px -60% 0px' });
