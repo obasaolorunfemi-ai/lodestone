@@ -56,6 +56,7 @@ export class ScorecardError extends Error {
   }
 }
 
+const MAX_SCORES = 20_000;
 const isStr = (v: unknown): v is string => typeof v === 'string' && v.length > 0;
 const isNum = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
 const isDay = (v: unknown): v is string => typeof v === 'string' && /^\d{4}-\d{2}-\d{2}/.test(v) && !Number.isNaN(Date.parse(v));
@@ -71,6 +72,7 @@ export function parseScorecard(raw: unknown): Scorecard {
   if (!isStr(c.source)) problems.push('source is missing');
   if (!isDay(c.generatedAt)) problems.push('generatedAt is missing or not a date');
   if (!Array.isArray(c.scores)) problems.push('scores is not a list');
+  else if (c.scores.length > MAX_SCORES) problems.push(`scores has more than ${MAX_SCORES} entries`);
   else c.scores.forEach((s, i) => {
     const at = `scores[${i}]`;
     if (!isStr(s?.model)) problems.push(`${at}.model is missing`);
@@ -85,11 +87,47 @@ export function parseScorecard(raw: unknown): Scorecard {
   return c as Scorecard;
 }
 
-/** Fetches and checks a scorecard from a URL. Throws if it can't be read or isn't valid. */
-export async function fetchScorecard(url: string, opts: { fetch?: typeof fetch; timeoutMs?: number } = {}): Promise<Scorecard> {
+export interface FetchScorecardOptions {
+  fetch?: typeof fetch;
+  timeoutMs?: number;
+  /** Refuse a body bigger than this. Default 1 MB. */
+  maxBytes?: number;
+  /** Only fetch from these hosts (the final host, after any redirect). Default: any host. */
+  allowedHosts?: string[];
+}
+
+/** Fetches and checks a scorecard from a URL. Throws if it can't be read, is too big, comes from a host you did not allow, or isn't valid.
+ *  Only https is accepted (http only for localhost). A scorecard can only change the order models are tried in, but a body of any size from anywhere is still not worth reading. */
+export async function fetchScorecard(url: string, opts: FetchScorecardOptions = {}): Promise<Scorecard> {
+  const u = new URL(url);
+  const local = u.hostname === 'localhost' || u.hostname === '127.0.0.1' || u.hostname === '[::1]';
+  if (u.protocol !== 'https:' && !(u.protocol === 'http:' && local)) throw new Error(`scorecard ${url}: only https is accepted`);
+  const allowed = (host: string) => !opts.allowedHosts || opts.allowedHosts.map((h) => h.toLowerCase()).includes(host.toLowerCase());
+  if (!allowed(u.hostname)) throw new Error(`scorecard ${url}: host not allowed`);
   const res = await (opts.fetch ?? fetch)(url, { signal: AbortSignal.timeout(opts.timeoutMs ?? 8_000) });
   if (!res.ok) throw new Error(`scorecard ${url}: ${res.status}`);
-  return parseScorecard(await res.json());
+  if (res.url && !allowed(new URL(res.url).hostname)) throw new Error(`scorecard ${url}: redirected to a host that is not allowed`);
+  const max = opts.maxBytes ?? 1_000_000;
+  const declared = Number(res.headers.get('content-length'));
+  if (Number.isFinite(declared) && declared > max) throw new Error(`scorecard ${url}: larger than ${max} bytes`);
+  let text = '';
+  if (res.body) {
+    const reader = res.body.getReader();
+    const chunks: Uint8Array[] = [];
+    let size = 0;
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      size += value.byteLength;
+      if (size > max) { await reader.cancel().catch(() => {}); throw new Error(`scorecard ${url}: larger than ${max} bytes`); }
+      chunks.push(value);
+    }
+    const all = new Uint8Array(size);
+    let at = 0;
+    for (const c of chunks) { all.set(c, at); at += c.byteLength; }
+    text = new TextDecoder().decode(all);
+  } else text = await res.text();
+  return parseScorecard(JSON.parse(text));
 }
 
 /** An id without its variant suffix: anthropic/claude-x:free is the same model as anthropic/claude-x. */
