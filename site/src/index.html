@@ -63,9 +63,11 @@
     <a href="#problem"><h3>Six ways a cheap AI call breaks</h3><p>And what Lodestone does about each.</p><div class="foot"><b>6</b><span class="tag">failure modes</span></div></a>
     <a href="#watch"><h3>Pick a bad day</h3><p>Run a call through the real rules and watch it recover.</p><div class="foot"><b>12</b><span class="tag">scenarios</span></div></a>
     <a href="#measured"><h3>What one bad day looked like</h3><p>Measured on 28 October 2026, with the mistakes left in.</p><div class="foot"><b>1 in 15</b><span class="tag">free answers usable, one day</span></div></a>
-    <a href="#using"><h3>What a tool writes</h3><p>One setup, then each call names a task, not a model.</p><div class="foot"><b>0</b><span class="tag">dependencies</span></div></a>
+    <a href="/using-it/"><h3>What a tool writes</h3><p>One setup, then each call names a task, not a model.</p><div class="foot"><b>0</b><span class="tag">dependencies</span></div></a>
   </nav>
 </div>
+
+<div class="col">{{provider_strip}}</div>
 
 <main class="col">
 
@@ -161,80 +163,6 @@
   <p class="cap" id="weather-note">One app's traffic on one key, so it describes KeyStone's week, not every tool's. Counts are approximate: two requests finishing together can lose one. A model is tried because the ones before it failed, so a low rate here is not a ranking of the models. Models with fewer than five attempts are left out.</p>
 </section>
 
-<section id="scorecards" aria-labelledby="scorecards-h">
-  <div class="divider"><span class="tag">Getting smarter over time</span><span class="tag">2 JSON formats</span></div>
-  <div class="head">
-    <h2 id="scorecards-h">Scorecards: let measurements choose the order</h2>
-    <p>Two small JSON formats let an evaluator and Lodestone feed each other without sharing code. <a href="https://naija-eval.extrafemi.com">Naija Eval</a>, which measures translation and speech quality for Hausa, Igbo and Yoruba, is the first to use them. Its scores are translation quality, so they help tasks in those languages, not every task.</p>
-  </div>
-  <div class="loop">
-    <div class="node"><h3>Evaluator (Naija Eval)</h3><p>Measures answer quality, such as chrF++ for English→Yoruba, per model.</p></div>
-    <div class="arrows" aria-hidden="true"><div class="r">model-scorecard/1 →</div><div class="l">← model-candidates/1</div><div class="l">← live reliability</div></div>
-    <div class="node"><h3>Lodestone (in your tool)</h3><p>Tries the best-measured models first for tasks you name, lists the models it can call, and records its own success rates and speeds.</p></div>
-  </div>
-  <ul class="method">
-    <li>A scorecard only changes the <i>order</i> models are tried in. Nothing is added or dropped.</li>
-    <li>Scores from fewer than 30 items, or over a year old, are ignored.</li>
-    <li>Unmeasured models keep their slot, so a good unmeasured model is never pushed down.</li>
-    <li>An explicit <code>route</code> is never reordered.</li>
-    <li>If the scorecard fetch fails or takes over 1.5 s, the order is left alone.</li>
-    <li>Live stats keep the last 200 attempts per model and never see prompts or answers.</li>
-  </ul>
-</section>
-
-<section id="using" aria-labelledby="using-h">
-  <div class="divider"><span class="tag">Using it</span><span class="tag">One setup, task-named calls</span></div>
-  <div class="head">
-    <h2 id="using-h">What a tool writes</h2>
-    <p>Set it up once and share the store. Each call names a task, not a model; Lodestone picks the order, the time slices and the fallbacks.</p>
-  </div>
-  <div class="two">
-<pre class="snip"><span class="c">// set up once, and share the store</span>
-const ai = createLodestone({
-  openrouter: { apiKey: OPENROUTER_KEY,
-    allowPaid: true, paidFirst: true,
-    paidModels: ['anthropic/claude-haiku-5.5'],
-    reasoning: (m) => m.startsWith('anthropic/')
-      ? { enabled: false } : { effort: 'low', exclude: true } },
-  fallbacks: [
-    { provider: requesty(), apiKey: REQUESTY_KEY,
-      models: ['bedrock/claude-haiku-5-5'],
-      discover: { fill: { maxPromptUsdPerMTok: 1,
-                          maxCompletionUsdPerMTok: 5 } } },
-    { provider: groq(), apiKey: GROQ_KEY,
-      models: ['llama-3.3-70b-versatile'], free: true },
-  ],
-  store, health: createHealth({ store }),
-  spend: createSpendLimit({ store, dailyUsd: 2 }),
-  rateLimit: { limiter: createRateLimiter({ store, max: 20 }),
-               whenOver: 'free-only' },
-  trust: { requireNoTraining: true },
-});
-
-<span class="c">// each call names a task, not a model</span>
-try {
-  const { data } = await ai.json({
-    prompt, validate: isJob, signal: req.signal,
-    caller: userId, private: true });   <span class="c">// a CV: do not keep or train on it</span>
-} catch (err) {
-  return explain(err, { product: 'MyApp' });
-}</pre>
-    <ol class="steps">
-      <li><b>Tiers, not model ids.</b> A task maps to <code>fast</code>, <code>strong</code> or <code>vision</code> (picked automatically when a message has an image). Or pass a fixed <code>route</code> to name provider, model and key yourself.</li>
-      <li><b>Customer keys stay separate.</b> A caller's own key replaces yours and unlocks the paid model, but your fallback providers and your spend ledger are never touched by that call.</li>
-      <li><b>One person cannot empty the budget.</b> Name the <code>caller</code> and each one gets their own allowance (stored as a hash). Over it, they are refused or served from free models only. The spend limit takes a hold per attempt, so a burst cannot overshoot it. <a href="/docs/protecting-your-budget/">How, and what is approximate</a>.</li>
-      <li><b>Daily upkeep.</b> <code>checkModels()</code> refreshes every provider's catalogue and reports what has gone or is retiring. <code>cacheKey</code> and <code>peek()</code> reuse answers for repeatable tasks.</li>
-      <li><b>Cancelling.</b> Pass a <code>signal</code>; when the person leaves, the call and every model after it stop.</li>
-      <li><b>Private by design.</b> <code>onAttempt</code> reports provider, model, outcome and timing only. Prompts and answers are never logged, and a <code>private</code> call is never cached.</li>
-    </ol>
-    <div class="three">
-      <a class="card" href="/docs/stores/"><span class="tag">Shared state</span><h3>Stores for where you deploy</h3><p>Netlify Blobs, Cloudflare KV, Upstash (and Vercel KV) and Deno KV adapters, so the circuit breaker and rate limits are shared between functions.</p></a>
-      <a class="card" href="/docs/runtimes/"><span class="tag">Checked, not assumed</span><h3>Node, Workers, Deno, Bun</h3><p>The same smoke checks run on all four in CI, Workers without the Node compatibility flag.</p></a>
-      <a class="card" href="/docs/python/"><span class="tag">Alpha</span><h3>A Python port</h3><p>Failover, time budget, breaker, spend holds, per-caller limits and <code>explain()</code>, with the standard library only. What it lacks is listed.</p></a>
-    </div>
-  </div>
-</section>
-
 </main>
 </div>
 
@@ -252,7 +180,6 @@ try {
         <li><a href="#problem">The problem</a></li>
         <li><a href="#watch">Watch a call</a></li>
         <li><a href="#measured">Measured</a></li>
-        <li><a href="#using">Using it</a></li>
       </ul>
     </nav>
     <nav aria-label="Pages">
@@ -262,6 +189,8 @@ try {
         <li><a href="/model-lists/">Model lists</a></li>
         <li><a href="/when-everything-fails/">When everything fails</a></li>
         <li><a href="/limits/">Honest limits</a></li>
+        <li><a href="/getting-smarter/">Getting smarter</a></li>
+        <li><a href="/using-it/">Using it</a></li>
         <li><a href="/where-it-runs/">Where it runs</a></li>
         <li><a href="/runs-on-lodestone/">Runs on Lodestone</a></li>
         <li><a href="/code-map/">Code map</a></li>

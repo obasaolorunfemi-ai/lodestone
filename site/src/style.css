@@ -460,3 +460,17 @@ a.card.go:hover h3 { color: var(--ox); }
 .fam-card .live-line { font-size: .9rem; color: var(--ink-3); border-top: 1px solid var(--rule); padding-top: 10px; }
 .fam-card .live-line[data-live="true"] { color: var(--good); }
 .fam-card .go { font-weight: 600; }
+
+/* Provider scroll on the home page */
+.provider-strip { display: grid; gap: 10px; padding-top: clamp(8px, 2vh, 20px); }
+.marquee { overflow: hidden; border-block: 1px solid var(--rule); background: var(--paper); -webkit-mask-image: linear-gradient(90deg, transparent, #000 6%, #000 94%, transparent); mask-image: linear-gradient(90deg, transparent, #000 6%, #000 94%, transparent); }
+.marquee-track { display: inline-flex; gap: 0; margin: 0; padding: 14px 0; list-style: none; white-space: nowrap; animation: tick 60s linear infinite; }
+.marquee-track li { display: inline-flex; align-items: center; gap: 12px; padding-inline: 28px; font: 700 clamp(1.3rem, 1.1rem + .8vw, 1.8rem)/1 var(--f-display); letter-spacing: -0.01em; color: var(--ink); }
+.marquee:hover .marquee-track { animation-play-state: paused; }
+.dot { display: inline-block; width: 11px; height: 11px; border-radius: 50%; flex: none; }
+.dot.live { background: var(--good); }
+.dot.list { background: var(--warn); }
+.dot.preset { background: transparent; border: 1.5px solid var(--ink-3); }
+.provider-strip .cap { display: flex; flex-wrap: wrap; gap: 6px 20px; align-items: center; }
+.provider-strip .key { display: inline-flex; align-items: center; gap: 8px; }
+@media (prefers-reduced-motion: reduce) { .marquee { overflow-x: auto; -webkit-mask-image: none; mask-image: none; } }
