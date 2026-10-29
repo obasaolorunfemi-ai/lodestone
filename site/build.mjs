@@ -288,7 +288,7 @@ function md(src, fromFile) {
 }
 
 const css1 = `<link rel="icon" href="/favicon.svg" type="image/svg+xml"><link rel="stylesheet" href="/fonts/fonts.css"><link rel="stylesheet" href="/style.css?v=${v}"><script src="/theme.js?v=${v}"></script><script src="/menu.js?v=${v}" defer></script>`;
-const page = ({ path, title, desc, body, crumbs = true, wide = false, scripts = '', side = '' }) => `<!doctype html>
+const page = ({ path, title, desc, body, crumbs = true, wide = false, scripts = '', side = '', stacked = false }) => `<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>${esc(title)} · Lodestone</title>
 <meta name="description" content="${esc(desc)}">
@@ -298,7 +298,7 @@ const page = ({ path, title, desc, body, crumbs = true, wide = false, scripts = 
 ${css1}${scripts}</head>
 <body><a class="skip" href="#main">Skip to content</a>
 <header class="sitebar">${siteBar(path)}</header>
-<main id="main" class="doc${wide ? ' wide' : ''}${side ? ' docs' : ''}">${side ? `<aside class="docs-side">${side}</aside><div class="docs-body">` : ''}${crumbs ? '<p class="crumbs tag"><a href="/docs/">Docs</a></p>' : ''}
+<main id="main" class="doc${wide ? ' wide' : ''}${stacked ? ' stacked' : ''}${side ? ' docs' : ''}">${side ? `<aside class="docs-side">${side}</aside><div class="docs-body">` : ''}${crumbs ? '<p class="crumbs tag"><a href="/docs/">Docs</a></p>' : ''}
 ${body}${side ? '</div>' : ''}
 </main>
 ${footHtml(false)}
@@ -320,8 +320,14 @@ for (const d of DOCS) {
   pages.push({ loc: `/${d.path}/`, lastmod: lastmod(d.file) });
 }
 mkdirSync(join(out, 'docs'), { recursive: true });
-writeFileSync(join(out, 'docs/index.html'), page({ path: 'docs', title: 'Docs', desc: 'Documentation for Lodestone: stores, protecting your budget, runtimes, the Python port, scorecards, security and the changelog.', crumbs: false, wide: true,
-  body: `<h1>Docs</h1><p class="lead">Built from the markdown in the repository. The <a href="/">home page</a> is the walkthrough; these are the details.</p><ul class="doc-list">${DOCS.map((d) => `<li><a href="/${d.path}/"><b>${esc(d.title)}</b><span>${esc(d.desc)}</span></a></li>`).join('')}<li><a href="${GH}README.md"><b>README</b><span>The full reference for the TypeScript library, on GitHub.</span></a></li></ul>` }));
+const docCard = (href, title, desc, ext = false) => `<li><a href="${href}"${ext ? ' rel="noopener"' : ''}><b>${esc(title)}</b><span>${esc(desc)}</span><i class="go">${ext ? 'Open on GitHub' : 'Read'} <u aria-hidden="true">→</u></i></a></li>`;
+const byPath = (paths) => paths.map((x) => DOCS.find((d) => d.path === x)).filter(Boolean).map((d) => docCard(`/${d.path}/`, d.title, d.desc)).join('');
+writeFileSync(join(out, 'docs/index.html'), page({ path: 'docs', title: 'Docs', desc: 'Documentation for Lodestone: stores, protecting your budget, runtimes, the Python port, scorecards, security and the changelog.', crumbs: false, wide: true, stacked: true,
+  body: `<h1>Docs</h1><p class="lead">The details behind the walkthrough, written once in the repository and shown here, so these pages cannot drift from the code. New here? <a href="/using-it/">Start with what a tool writes</a>.</p>
+<div class="install-row"><div><span class="tag">TypeScript</span><code class="install-code">npm install @extrafemi-ai/lodestone</code></div><div><span class="tag">Python (alpha)</span><code class="install-code">pip install "git+https://github.com/obasaolorunfemi-ai/lodestone#subdirectory=python"</code></div></div>
+<h2>Guides</h2><ul class="doc-grid">${byPath(['docs/stores', 'docs/protecting-your-budget', 'docs/runtimes', 'docs/scorecards'])}</ul>
+<h2>Languages</h2><ul class="doc-grid">${byPath(['docs/python'])}${docCard(GH + 'README.md', 'README', 'The full reference for the TypeScript library: every option, with examples.', true)}</ul>
+<h2>The project</h2><ul class="doc-grid">${byPath(['security', 'changelog'])}</ul>` }));
 pages.splice(1, 0, { loc: '/docs/', lastmod: date });
 
 // 6b. Pages that used to be sections of the home page, and the platforms page.
@@ -423,8 +429,8 @@ try {
       <a class="card" href="/docs/python/"><span class="tag">Alpha</span><h3>A Python port</h3><p>Failover, time budget, breaker, spend holds, per-caller limits and <code>explain()</code>, with the standard library only. What it lacks is listed.</p></a>
     </div>
   </div>` },
-  { path: 'code-map', title: 'Code map', desc: 'Where each piece of Lodestone lives in src/, generated from the repository.', wide: true,
-    body: `<h1>Code map</h1><p class="lead">Where each piece lives in <code>src/</code>. This is generated from the files in the repository when the site is built. <b>+tests</b> marks a file with its own test file; the others are covered by a shared one or by the call-path tests.</p><div class="map">${filemap}</div>` },
+  { path: 'code-map', title: 'Code map', desc: 'Where each piece of Lodestone lives in src/, generated from the repository.', wide: true, stacked: true,
+    body: `<h1>Code map</h1><p class="lead">Where each piece lives in <code>src/</code>.</p><p class="legend-line"><span class="chip ok">+tests</span> has its own test file. The others are covered by a shared test file or by the call-path tests. Generated from the repository when the site is built.</p><div class="map">${filemap}</div>` },
   { path: 'where-it-runs', title: 'Where it runs', desc: 'Netlify, Cloudflare Workers, Base44, Vercel and Render: which run Lodestone in production, which are checked in CI, and which are not tested yet.', wide: true,
     body: `<h1>Where it runs</h1><p class="lead">Lodestone uses only <code>fetch</code>, <code>AbortSignal</code> and <code>URL</code>, so it runs wherever your function does. This page says, for each platform, how much of that has been seen and not just assumed.</p>
 <div class="legend-chips"><span><span class="chip ok">In production</span> a real app runs on it</span><span><span class="chip info">Runtime tested</span> the same checks run on that platform's runtime in CI, but nothing of ours is deployed there</span></div>
@@ -443,7 +449,7 @@ try {
 ];
 for (const x of extras) {
   mkdirSync(join(out, x.path), { recursive: true });
-  writeFileSync(join(out, x.path, 'index.html'), page({ path: x.path, title: x.title, desc: x.desc, body: x.body, crumbs: false, wide: x.wide, scripts: x.scripts }));
+  writeFileSync(join(out, x.path, 'index.html'), page({ path: x.path, title: x.title, desc: x.desc, body: x.body, crumbs: false, wide: x.wide, scripts: x.scripts, stacked: x.stacked }));
   pages.push({ loc: `/${x.path}/`, lastmod: date });
 }
 writeFileSync(join(out, 'sitemap.xml'), `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${pages.map((p) => `<url><loc>${SITE}${p.loc}</loc><lastmod>${p.lastmod}</lastmod></url>`).join('')}</urlset>\n`);
