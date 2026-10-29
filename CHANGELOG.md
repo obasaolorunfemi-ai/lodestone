@@ -2,6 +2,27 @@
 
 Versions before 1.0 may change between minor releases; each change that could break a caller is marked **breaking**.
 
+## 0.7.0
+
+Security fixes, shared state that works on every platform, per-caller limits, and runtimes beyond Node. Found in a review of 0.6.0.
+
+**Security**
+- **Private calls are never cached.** Before, a call with `private: true` and a `cacheKey` saved its answer (made from a CV, say) in the shared store for a day. Now it is neither read from nor written to the cache. **Breaking** for anyone who relied on caching private calls.
+- **A cached answer is tied to its input.** The cache stores a fingerprint of the system prompt, messages and tier with each answer; a `cacheKey` that is too coarse gives a miss, never another input's answer. Answers saved by 0.6.0 have no fingerprint and are treated as misses.
+- **`private` now holds for fallback providers with no `trust` policy.** A fallback is used for a private call only if its own model list says the model is not trained on, or you vouch for it with the new `privacy: 'no-training'`. **Breaking** if you used `private: true` with an `anthropic()`, `google()` or other fallback that publishes nothing: add `privacy: 'no-training'` once you have checked that provider's terms.
+- **The spend limit holds under a burst.** `createSpendLimit()` takes a hold for each paid attempt, settles it with the real cost, and gives it back when the attempt fails. `SpendControl` gains an optional `release()`, and `allow`/`record` receive an `id`.
+- **Per-caller rate limits.** `createRateLimiter()` and `rateLimit` in the config; `caller` on a call; new failure kind `throttled` (with `detail.retryAfterMs` and an `explain()` sentence); `whenOver: 'free-only'` keeps serving an over-limit caller from free models. Only a hash of the caller is stored.
+- **Anything read from a store is checked** (catalogue, circuit-breaker state, spend ledger, rate-limit counters) for shape and size.
+- **`ProviderError.body` is no longer an enumerable property**, so logging the error does not print a provider's echo of the prompt.
+- **`fetchScorecard`** now requires https (http only for localhost), reads at most `maxBytes` (1 MB default), and takes `allowedHosts`, checked again after a redirect. A scorecard with more than 20,000 entries is refused.
+- **Supply chain.** GitHub Actions are pinned to commits, Dependabot and CodeQL are on, and the release job runs in a protected environment. The site sends `Strict-Transport-Security` with `includeSubDomains`, no longer allows inline style attributes in its Content-Security-Policy, and publishes `/.well-known/security.txt`.
+
+**Reach**
+- **Store adapters:** `netlifyBlobsStore`, `cloudflareKvStore`, `upstashStore` (which can count atomically) and `denoKvStore`, plus `safeKey`. `KeyValueStore.set` takes an optional `{ ttlMs }`; `AtomicStore` adds `incrBy`.
+- **Runtimes.** CI now runs the same smoke checks on Node 20, 22 and 24, Cloudflare Workers (`workerd`, no Node compatibility flag), Deno and Bun. Nothing in the library needed to change to pass.
+- **Python port** in `python/` (alpha; not on PyPI yet, install from the repository): failover, time budget, circuit breaker, spend holds, rate limits, private calls, `explain()`, standard library only.
+- The site gains a docs section (stores, protecting your budget, runtimes, Python, security), `llms.txt`, and a sitemap that lists them; the live "Free model weather" section appears only once there are counts.
+
 ## 0.6.0
 
 - **Schemas.** `json({ schema })` accepts anything with a `safeParse` method, such as a Zod schema, as well as a hand-written `validate` function. A model whose answer the schema rejects is skipped for the next, as before, and `data` is what the schema returns, so its defaults and transforms apply. Lodestone does not depend on any schema library; the `SafeParser` type is exported.
