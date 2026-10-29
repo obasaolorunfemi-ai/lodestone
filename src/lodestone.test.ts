@@ -501,7 +501,7 @@ describe('spend control', () => {
     const seen: unknown[] = [];
     const ai = setup({ allow: () => true, record: (i) => { seen.push(i); } });
     expect((await ai.complete({ prompt: 'x' })).model).toBe('paid-1');
-    expect(seen).toEqual([{ provider: 'mock', model: 'paid-1', phase: 'paid', usage: { inputTokens: 1000, outputTokens: 200, costUsd: 0.0004 }, costUsd: 0.0004 }]);
+    expect(seen).toEqual([{ id: expect.any(String), provider: 'mock', model: 'paid-1', phase: 'paid', usage: { inputTokens: 1000, outputTokens: 200, costUsd: 0.0004 }, costUsd: 0.0004 }]);
   });
   it('does not use a paid model once the limit is reached, and says it is the budget', async () => {
     const or = mock(paidOnly);

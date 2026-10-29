@@ -2,9 +2,13 @@ import type { RateLimitReading } from './rateLimit.js';
 
 /** A provider answered with an error status (or the request itself failed: status 599). */
 export class ProviderError extends Error {
-  constructor(public status: number, public body: string) {
+  /** The provider's raw response. Some providers repeat part of the prompt in an error, so this is not an own enumerable property:
+   *  `console.log(err)` and JSON.stringify(err) leave it out. Read it deliberately, as `err.body`. */
+  declare body: string;
+  constructor(public status: number, body: string) {
     super(`provider error ${status}`);
     this.name = 'ProviderError';
+    Object.defineProperty(this, 'body', { value: body, enumerable: false, writable: true, configurable: true });
   }
 }
 
@@ -36,6 +40,8 @@ export type FailureKind =
   | 'aborted'
   /** The platform's spend limit has been reached, so no paid model was used. */
   | 'budget'
+  /** This caller has made too many calls in the time allowed (see `rateLimit`). `detail.retryAfterMs` says when to try again. */
+  | 'throttled'
   /** No provider has a key. */
   | 'not_configured'
   | 'other';
@@ -45,7 +51,7 @@ export type FailureKind =
 export class LodestoneError extends Error {
   constructor(
     public kind: FailureKind,
-    public detail: { status?: number; rateLimit?: RateLimitReading; ownKey?: boolean; needsCredit?: boolean; providerMessage?: string } = {}
+    public detail: { status?: number; rateLimit?: RateLimitReading; ownKey?: boolean; needsCredit?: boolean; providerMessage?: string; retryAfterMs?: number } = {}
   ) {
     super(`no model could answer: ${kind}`);
     this.name = 'LodestoneError';

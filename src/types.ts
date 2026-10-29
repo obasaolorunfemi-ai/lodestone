@@ -44,9 +44,18 @@ export interface Provider {
   listModels?(apiKey: string, signal?: AbortSignal): Promise<CatalogModel[] | null>;
 }
 
-/** Where Lodestone keeps the model catalogue and cached answers. Anything that can
- *  get and set JSON by key will do: Netlify Blobs, Redis, a SQLite table, a Map. */
+/** Where Lodestone keeps the model catalogue, which models are failing, saved answers and counters.
+ *  Anything that can get and set JSON by key will do: Netlify Blobs, Cloudflare KV, Upstash, Deno KV,
+ *  a SQLite table, a Map. Ready-made adapters are in stores/. */
 export interface KeyValueStore {
   get(key: string): Promise<unknown>;
-  set(key: string, value: unknown): Promise<void>;
+  /** `ttlMs` says how long the value is worth keeping. A store that cannot expire values may ignore it. */
+  set(key: string, value: unknown, opts?: { ttlMs?: number }): Promise<void>;
+}
+
+/** A store that can add to a counter in one step, so two functions counting at the same moment do not lose a count.
+ *  The rate limiter uses it when the store has it (Upstash does, and the memory store), and otherwise reads and writes. */
+export interface AtomicStore extends KeyValueStore {
+  /** Adds `by` to the counter at `key` (starting from 0), returns the new total. A counter without a value expires after `ttlMs`. */
+  incrBy(key: string, by: number, opts: { ttlMs: number }): Promise<number>;
 }

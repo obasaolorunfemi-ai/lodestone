@@ -1,5 +1,6 @@
 import { vet, type TrustPolicy } from './trust.js';
 import type { KeyValueStore, Tier } from './types.js';
+import { isRecord } from './util.js';
 
 /** Works out which models to ask for from OpenRouter's own catalogue, so a model
  *  that has been withdrawn is dropped and a current one takes its place without
@@ -82,6 +83,14 @@ const MEMORY_MS = 6 * 3_600_000;
 const STALE_MS = 24 * 3_600_000;
 
 interface Saved { at: string; models: CatalogModel[] }
+const MAX_CATALOG = 5_000;
+
+/** A catalogue read back from the store, checked: a list somebody else wrote is not trusted to be the right shape or size. Entries without a string id are dropped. */
+function cleanSaved(raw: unknown): Saved | null {
+  if (!isRecord(raw) || typeof raw.at !== 'string' || !Array.isArray(raw.models)) return null;
+  const models = raw.models.filter((m): m is CatalogModel => isRecord(m) && typeof m.id === 'string' && m.id.length > 0 && m.id.length <= 200).slice(0, MAX_CATALOG);
+  return models.length ? { at: raw.at, models } : null;
+}
 
 export interface Catalog {
   /** Fetches OpenRouter's catalogue and saves it. Returns null if it can't be read. */
@@ -127,8 +136,8 @@ export function createCatalog(store: KeyValueStore, fetchImpl: typeof fetch, now
   const load = async (): Promise<CatalogModel[] | null> => {
     if (memory && now() - memory.at < MEMORY_MS) return memory.models;
     try {
-      const saved = (await store.get(KEY_)) as Saved | null;
-      if (saved?.models?.length) {
+      const saved = cleanSaved(await store.get(KEY_));
+      if (saved) {
         memory = { at: now(), models: saved.models };
         if (now() - Date.parse(saved.at) > STALE_MS) refresh().catch(() => {});
         return saved.models;

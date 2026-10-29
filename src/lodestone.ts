@@ -12,8 +12,10 @@ import { openrouter } from './providers/openrouter.js';
 import type { Health } from './health.js';
 import { rankModels, type QualityQuery, type Scorecard } from './scorecard.js';
 import type { Stats } from './stats.js';
+import type { RateLimiter } from './limiter.js';
 import { memoryStore } from './store.js';
 import type { ContentPart, KeyValueStore, Message, Provider, ProviderReply, Tier, Usage } from './types.js';
+import { sha256Hex } from './util.js';
 
 export interface Profile {
   tier: Tier;
@@ -34,6 +36,8 @@ export interface FallbackConfig {
   discover?: { fill?: FillOptions; max?: number };
   /** Also use this provider when the caller supplied their own OpenRouter key. Default false: a fallback has the platform's key, and a caller's own key must never lead to the platform's money being spent. */
   allowWithCallerKey?: boolean;
+  /** Your statement that this provider does not keep or train on API prompts (you have read its terms). A call marked `private` uses a fallback only if the provider's own model list says so for that model, or you say so here. Without either, `private` skips it: Lodestone cannot see what a provider does with a prompt unless the provider publishes it. */
+  privacy?: 'no-training';
 }
 
 export interface AttemptEvent {
@@ -48,11 +52,21 @@ export interface AttemptEvent {
 
 /** Where the platform's money is counted. Only attempts that spend it go through: the paid models and the
  *  fallback providers on the platform's keys. A call on the caller's own key never does. */
+export interface SpendInfo {
+  /** Names one allowed attempt, so allow(), record() and release() can be matched up. */
+  id: string;
+  provider: string;
+  model: string;
+  phase: 'paid' | 'fallback';
+}
+
 export interface SpendControl {
-  /** Asked before each such attempt. Return false once the limit is reached and that model is not used. */
-  allow(info: { provider: string; model: string; phase: 'paid' | 'fallback' }): boolean | Promise<boolean>;
+  /** Asked before each such attempt. Return false once the limit is reached and that model is not used. Many calls can be in flight at once, so a limit that only compares a total with a number lets a burst through: take a hold under `info.id` here (createSpendLimit does). */
+  allow(info: SpendInfo): boolean | Promise<boolean>;
   /** Told after each such attempt that answered, with what it cost: the provider's own figure when it gives one (OpenRouter does), otherwise an estimate from the model's catalogue price, otherwise nothing. */
-  record(info: { provider: string; model: string; phase: 'paid' | 'fallback'; usage?: Usage; costUsd?: number }): void | Promise<void>;
+  record(info: SpendInfo & { usage?: Usage; costUsd?: number }): void | Promise<void>;
+  /** Told when an attempt that allow() let through did not answer, so a hold taken in allow() can be given back. */
+  release?(info: SpendInfo): void | Promise<void>;
 }
 
 export interface LodestoneConfig {
@@ -85,6 +99,12 @@ export interface LodestoneConfig {
   spend?: SpendControl;
   /** Records every attempt so you can publish how each model does (stats.scorecard()). */
   stats?: Stats;
+  /** Gives each caller their own allowance, so one person cannot spend everyone's budget. A call names its caller with `caller`; a call without one is not limited, and neither is a call on the caller's own key. See limiter.ts. */
+  rateLimit?: {
+    limiter: RateLimiter;
+    /** What happens to a caller over their allowance. 'reject' (default) fails the call with kind 'throttled'. 'free-only' still serves them, from free models only, so they never cost you anything. */
+    whenOver?: 'reject' | 'free-only';
+  };
   /** Named tasks, so calls say what they are doing and not which model to use. */
   profiles?: Record<string, Profile>;
   /** Where the model catalogue and cached answers are kept. Default: memory. */
@@ -132,11 +152,13 @@ export interface CompleteOptions {
   apiKey?: string;
   /** An answer that fails this check counts as a failed attempt, and the next model is tried. */
   accept?: (text: string) => boolean;
-  /** The prompt must not be kept or trained on (a CV, say). OpenRouter is told to use only providers that do not; other models are used only if their provider's list says so. Many free models cannot meet this, and the paid ones are used instead. */
+  /** The prompt must not be kept or trained on (a CV, say). OpenRouter is told to use only providers that do not. Another provider is used only if its own model list says the model is not trained on (Requesty does), or you vouched for it with `privacy: 'no-training'` on the fallback. Many free models cannot meet this, and the paid ones are used instead. A private call is never saved to the cache, whatever `cacheKey` says. A call with an explicit `route` is your own choice of provider: Lodestone passes the request to it as told. */
   private?: boolean;
+  /** Who is making this call (a user id, an IP address), for `rateLimit`. Only a hash is stored. */
+  caller?: string;
   /** Stops the call when the caller no longer wants the answer (the person left the page). */
   signal?: AbortSignal;
-  /** Same key, same answer: the answer is saved and reused. Only for pure, repeatable tasks. */
+  /** Same key, same answer: the answer is saved and reused. Only for pure, repeatable tasks, and the key must stand for the whole input (use a hash of it). As a safeguard an answer is also tied to a fingerprint of the system prompt, messages and tier, so a key that is too coarse gives a miss, never another person's answer. Ignored when `private` is set. */
   cacheKey?: string;
   cacheTtlMs?: number;
 }
@@ -210,8 +232,15 @@ export function createLodestone(config: LodestoneConfig = {}) {
   /** A fallback provider's models for a tier: the app's own, pruned and topped up from the provider's catalogue. */
   async function resolveFallback(fb: FallbackConfig, tier: Tier, strict: boolean): Promise<string[]> {
     const cat = fbCatalogs.get(fb);
-    if (!cat) return fb.models;
-    try { return resolveProviderModels(fb.models, await cat.load(), { tier, policy, strict, fill: fb.discover?.fill, max: fb.discover?.max, now: now() }); } catch { return fb.models; }
+    // A private call may only go where something says prompts are not kept or trained on: the app's own word, or the provider's list.
+    const vouched = strict && fb.privacy === 'no-training';
+    if (!cat) return strict && !vouched ? [] : fb.models;
+    try {
+      const listed = await cat.load();
+      if (strict && !vouched && !listed?.length) return []; // no list, so nothing to check the models against
+      const p = strict && !vouched ? { ...policy, requireNoTraining: true } : policy;
+      return resolveProviderModels(fb.models, listed, { tier, policy: p, strict: strict && !vouched, fill: fb.discover?.fill, max: fb.discover?.max, now: now() });
+    } catch { return strict && !vouched ? [] : fb.models; }
   }
 
   /** The scorecards, or none: never throws and never holds a request up for long. */
@@ -246,12 +275,26 @@ export function createLodestone(config: LodestoneConfig = {}) {
     const quality = opts.quality ?? profile?.quality;
     const order = async (models: string[]) => (quality && models.length > 1 ? rankModels(models, await cards(), quality, { now }) : models);
 
-    const cacheSlot = opts.cacheKey ? `lodestone:cache:${opts.cacheKey}` : null;
+    // A private call is never read from or written to the cache: an answer made from a CV must not sit in a shared store.
+    const cacheSlot = opts.cacheKey && !strict ? `lodestone:cache:${opts.cacheKey}` : null;
+    const cacheTtl = opts.cacheTtlMs ?? 24 * 3_600_000;
+    const fingerprint = cacheSlot ? await sha256Hex(JSON.stringify([opts.system ?? '', messages, tier, opts.task ?? ''])) : '';
     if (cacheSlot) {
       try {
-        const hit = (await store.get(cacheSlot)) as (CompleteResult & { at: number }) | null;
-        if (hit?.text && now() - hit.at < (opts.cacheTtlMs ?? 24 * 3_600_000) && (!opts.accept || opts.accept(hit.text))) return { text: hit.text, provider: hit.provider, model: hit.model, cached: true };
+        const hit = (await store.get(cacheSlot)) as (CompleteResult & { at: number; fp?: string }) | null;
+        const mine = typeof hit?.text === 'string' && typeof hit.at === 'number' && hit.fp === fingerprint; // an answer for different input is a miss
+        if (mine && now() - hit!.at < cacheTtl && (!opts.accept || opts.accept(hit!.text))) return { text: hit!.text, provider: hit!.provider, model: hit!.model, cached: true };
       } catch { /* a store that cannot be read is a cache miss */ }
+    }
+
+    // Each caller has their own allowance, so one of them cannot empty the platform's budget for the rest.
+    let throttled: { retryAfterMs: number } | null = null;
+    if (config.rateLimit && opts.caller && !opts.apiKey && !opts.route?.length) {
+      const r = await config.rateLimit.limiter.take(opts.caller).catch(() => null);
+      if (r && !r.ok) {
+        if ((config.rateLimit.whenOver ?? 'reject') === 'reject') throw new LodestoneError('throttled', { retryAfterMs: r.retryAfterMs });
+        throttled = { retryAfterMs: r.retryAfterMs };
+      }
     }
 
     const started = now();
@@ -283,9 +326,14 @@ export function createLodestone(config: LodestoneConfig = {}) {
       return keep;
     };
     /** May the platform's money be spent on this attempt? A caller's own key is their money, not ours. */
+    let held: SpendInfo | null = null;
     const mayUse = async (provider: Provider, model: string, phase: 'paid' | 'fallback', free = false): Promise<boolean> => {
-      if (callerKey || free || !config.spend) return true;
-      if (await config.spend.allow({ provider: provider.name, model, phase })) return true;
+      if (callerKey || free) return true;
+      // A caller over their allowance (with 'free-only') costs the platform nothing.
+      if (throttled) { config.onAttempt?.({ provider: provider.name, model, phase, outcome: 'skipped', ms: 0 }); return false; }
+      if (!config.spend) return true;
+      const info: SpendInfo = { id: crypto.randomUUID(), provider: provider.name, model, phase };
+      if (await config.spend.allow(info)) { held = info; return true; }
       spendBlocked = true;
       config.onAttempt?.({ provider: provider.name, model, phase, outcome: 'skipped', ms: 0 });
       return false;
@@ -309,6 +357,12 @@ export function createLodestone(config: LodestoneConfig = {}) {
         else if (e instanceof ProviderError) out = { kind: 'fail', status: e.status, body: e.body, message: messageFrom(e.body) };
         else out = { kind: 'fail', status: 599, body: (e as Error).message };
       }
+      // An attempt that did not answer gives back the hold it took on the spend limit.
+      const hold = held as SpendInfo | null;
+      if (out.kind !== 'ok' && hold && hold.provider === provider.name && hold.model === model) {
+        held = null;
+        try { await config.spend?.release?.(hold); } catch { /* the hold expires by itself */ }
+      }
       if (out.kind === 'aborted') throw new LodestoneError('aborted'); // the person left: nothing more to try
       const event: AttemptEvent = { provider: provider.name, model, phase, outcome: out.kind === 'ok' ? 'ok' : out.kind === 'timeout' ? 'timeout' : 'failed', status: out.kind === 'fail' ? out.status : undefined, ms: now() - at };
       // A key or credit problem (401, 402, 403) says nothing about the model, so it is not counted against it.
@@ -324,10 +378,13 @@ export function createLodestone(config: LodestoneConfig = {}) {
       const result: CompleteResult = { text: reply.text, provider: provider.name, model, usage: reply.usage };
       if (phase && !callerKey && !free && config.spend) {
         const costUsd = reply.usage?.costUsd ?? (await estimateCost(model, reply.usage));
+        const hold = held as SpendInfo | null;
+        const id = hold && hold.provider === provider.name && hold.model === model ? hold.id : crypto.randomUUID();
+        held = null;
         // A ledger that fails must never fail an answer the person is waiting for.
-        try { await config.spend.record({ provider: provider.name, model, phase, usage: reply.usage, costUsd }); } catch { /* not counted */ }
+        try { await config.spend.record({ id, provider: provider.name, model, phase, usage: reply.usage, costUsd }); } catch { /* not counted */ }
       }
-      if (cacheSlot) await store.set(cacheSlot, { ...result, at: now() }).catch(() => {});
+      if (cacheSlot) await store.set(cacheSlot, { ...result, at: now(), fp: fingerprint }, { ttlMs: cacheTtl }).catch(() => {});
       return result;
     };
 
@@ -429,6 +486,7 @@ export function createLodestone(config: LodestoneConfig = {}) {
 
     // Nothing answered. Say why, using what the first useful failure told us.
     const ownKey = Boolean(opts.apiKey);
+    if (throttled) throw new LodestoneError('throttled', throttled);
     if (spendBlocked) throw new LodestoneError('budget');
     if (!attempted) throw new LodestoneError('not_configured');
     const lastFail = last as Outcome | null;
@@ -504,7 +562,7 @@ export function createLodestone(config: LodestoneConfig = {}) {
     return { ok: shortTiers.length === 0, catalogSize: models.length, withdrawn, expiring, shortTiers, ...(Object.keys(providers).length ? { providers } : {}) };
   }
 
-  /** An answer already saved under this key, without calling any model: so a caller can serve it without counting it as a request. */
+  /** An answer already saved under this key, without calling any model: so a caller can serve it without counting it as a request. It cannot see the input, so the key must stand for all of it; complete() checks the input itself and will not serve an answer made for something else. */
   async function peek(cacheKey: string, ttlMs = 24 * 3_600_000): Promise<CompleteResult | null> {
     try {
       const hit = (await store.get(`lodestone:cache:${cacheKey}`)) as (CompleteResult & { at: number }) | null;

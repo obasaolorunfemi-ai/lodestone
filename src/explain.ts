@@ -53,6 +53,10 @@ export function explain(err: unknown, opts: ExplainOptions = {}): string {
       return 'Cancelled.';
     case 'budget':
       return `${product}'s AI budget for now is used up, and the free models are busy. Try again later${opts.settingsHint ? `, or add your own OpenRouter key ${opts.settingsHint.replace(/^in /, 'in ')} to keep going` : ''}.`;
+    case 'throttled': {
+      const mins = Math.max(1, Math.ceil((detail.retryAfterMs ?? 60_000) / 60_000));
+      return `You've made a lot of requests in a short time. Try again in ${mins === 1 ? 'a minute' : `about ${mins} minutes`}.`;
+    }
     case 'not_configured':
       return `${product}'s AI isn't set up yet.`;
     default:
