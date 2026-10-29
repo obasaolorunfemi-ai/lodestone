@@ -161,16 +161,6 @@
   <p class="cap" id="weather-note">One app's traffic on one key, so it describes KeyStone's week, not every tool's. Counts are approximate: two requests finishing together can lose one. A model is tried because the ones before it failed, so a low rate here is not a ranking of the models. Models with fewer than five attempts are left out.</p>
 </section>
 
-<section id="failures" aria-labelledby="failures-h">
-  <div class="divider"><span class="tag">When everything fails</span><span class="tag">{{kinds}} kinds</span></div>
-  <div class="head">
-    <h2 id="failures-h">{{Kinds}} kinds of failure, each with its own advice</h2>
-    <p><code>complete()</code> and <code>json()</code> throw a <code>LodestoneError</code> with one of these <code>kind</code> values. Tap one to read the sentence <code>explain(err, { product: 'MyApp', settingsHint: 'in Settings' })</code> gives a person.</p>
-  </div>
-  <div class="errs" id="errs"></div>
-  <p class="note">The sentences are the library's own: this page calls <code>explain()</code> for each kind when it is built, so they cannot drift from the code.</p>
-</section>
-
 <section id="scorecards" aria-labelledby="scorecards-h">
   <div class="divider"><span class="tag">Getting smarter over time</span><span class="tag">2 JSON formats</span></div>
   <div class="head">
@@ -258,20 +248,6 @@ try {
   </div>
 </section>
 
-<section id="more" aria-labelledby="more-h">
-  <div class="divider"><span class="tag">Go deeper</span><span class="tag">4 more pages</span></div>
-  <div class="head">
-    <h2 id="more-h">The details have their own pages</h2>
-    <p>The walkthrough above is the short version. These pages hold the tables and maps you will want when you are setting it up.</p>
-  </div>
-  <div class="four">
-    <a class="card go" href="/providers/"><span class="tag">Providers</span><h3>How far each provider was checked</h3><p>Every fallback service, and exactly what has and has not been seen working live.</p></a>
-    <a class="card go" href="/model-lists/"><span class="tag">Model lists</span><h3>Lists that keep themselves alive</h3><p>How a model list drops what is gone, stays short and admits only what you trust.</p></a>
-    <a class="card go" href="/where-it-runs/"><span class="tag">Where it runs</span><h3>Netlify, Cloudflare Workers, Base44, Vercel, Render</h3><p>Which platforms run it in production, which are checked in CI, and which are not tested yet.</p></a>
-    <a class="card go" href="/code-map/"><span class="tag">Code map</span><h3>Where each piece lives in <code>src/</code></h3><p>Generated from the repository, with the files that have their own tests marked.</p></a>
-  </div>
-</section>
-
 </main>
 </div>
 
@@ -310,6 +286,7 @@ try {
       <ul>
         <li><a href="/providers/">Providers</a></li>
         <li><a href="/model-lists/">Model lists</a></li>
+        <li><a href="/when-everything-fails/">When everything fails</a></li>
         <li><a href="/where-it-runs/">Where it runs</a></li>
         <li><a href="/code-map/">Code map</a></li>
         <li><a href="/docs/">Docs</a></li>

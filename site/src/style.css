@@ -231,14 +231,15 @@ td.num2, th.num2 { text-align: right; font-variant-numeric: tabular-nums; white-
 .pool .live { border-color: var(--good); background: var(--good-wash); color: var(--good); font-weight: 700; }
 
 /* failure kinds */
-.errs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; align-items: start; }
-.err { border: 1px solid var(--rule); border-radius: 18px; background: var(--surface); padding: 16px 18px; cursor: pointer; transition: border-color .2s, transform .25s var(--ease); font: inherit; text-align: left; color: var(--ink); min-height: 44px; }
-.err:hover { border-color: var(--ox); transform: translateY(-2px); }
-.err code { background: none; border: 0; padding: 0; font-size: .95rem; font-weight: 600; color: var(--ox); display: block; }
-.err .what { font-size: .92rem; margin-top: 4px; display: block; color: var(--ink-2); }
-.err .say { font-size: .92rem; color: var(--ink); margin-top: 10px; font-style: italic; display: none; border-top: 1px solid var(--rule); padding-top: 10px; }
-.err[aria-expanded="true"] .say { display: block; }
-.err[aria-expanded="true"] { border-color: var(--ox); }
+.fail-list { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; align-items: start; margin-block: .6rem; }
+.fail-list details { border: 1px solid var(--rule); border-radius: 18px; background: var(--surface); padding: 0; transition: border-color .2s; }
+.fail-list details:hover, .fail-list details[open] { border-color: var(--ox); }
+.fail-list summary { list-style: none; cursor: pointer; padding: 16px 18px; min-height: 44px; }
+.fail-list summary::-webkit-details-marker { display: none; }
+.fail-list summary code { background: none; border: 0; padding: 0; font-size: .95rem; font-weight: 600; color: var(--ox); display: block; }
+.fail-list summary span { font-size: .92rem; margin-top: 4px; display: block; color: var(--ink-2); }
+.fail-list .say { font-size: .92rem; color: var(--ink); font-style: italic; border-top: 1px solid var(--rule); margin: 0 18px; padding: 10px 0 16px; }
+@media (max-width: 860px) { .fail-list { grid-template-columns: 1fr; } }
 
 /* scorecards loop */
 .loop { display: grid; grid-template-columns: minmax(0, 1fr) 150px minmax(0, 1fr); align-items: center; gap: 10px; }
@@ -305,7 +306,7 @@ pre.snip .c { color: var(--code-dim); }
   .sim, .two, .loop { grid-template-columns: 1fr; }
   .scen { grid-template-columns: repeat(auto-fill, minmax(12rem, 1fr)); }
   .arrows { padding: 8px 25%; }
-  .three, .errs { grid-template-columns: 1fr; }
+  .three { grid-template-columns: 1fr; }
   .numbers { grid-template-columns: 1fr; }
   .callout + .callout { border-left: 0; border-top: 1px solid var(--rule); padding-left: 0; }
   .foot-cols { grid-template-columns: repeat(3, minmax(0, 1fr)); }
@@ -343,7 +344,6 @@ pre.snip .c { color: var(--code-dim); }
   .ticker, .sitebar, .skip, .actions, .scen, .replay-row, .site-foot .family { display: none !important; }
   body { background: #fff; color: #000; font-size: 11pt; }
   .js .rise { opacity: 1; transform: none; }
-  .err .say { display: block; }
   section { break-inside: avoid-page; }
   .log { max-height: none; }
 }
@@ -432,6 +432,7 @@ a.card.go:hover h3 { color: var(--ox); }
   .sections a { min-height: 40px; }
 }
 
-/* Go deeper: four cards in a 2 by 2 grid */
-.four { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
-@media (max-width: 720px) { .four { grid-template-columns: 1fr; } }
+/* Platform logos on Where it runs */
+.plat-head { display: flex; align-items: center; gap: 12px; }
+.plat-head .logo { width: 28px; height: 28px; flex: none; color: var(--ink); }
+.logo-note { margin-top: .4rem; }
