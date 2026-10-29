@@ -63,7 +63,7 @@ Be clear-eyed about these before you choose it over the TypeScript library.
 ## Disclaimers
 
 - **Images, streaming, tool calling and scorecards.** None of these exist in the Python port.
-- **Real-provider testing.** The port has been tested against a local HTTP server and fake providers, not against live ones. That is the main reason it is alpha.
+- **Real-provider testing.** The port has been tested against a local HTTP server and fake providers. It has made one live call, to Groq (`openai/gpt-oss-20b`, answered in 0.9 s, on 29 October 2026). No other provider, and no OpenRouter call, has been tried live from Python. That thin live testing is the main reason it is alpha.
 
 ## If every call fails with status 599
 
