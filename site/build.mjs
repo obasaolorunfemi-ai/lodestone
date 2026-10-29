@@ -35,9 +35,12 @@ const logo = (file, name) => {
   return d.length ? `<svg class="logo" viewBox="0 0 24 24" role="img" aria-label="${name} logo" fill="currentColor">${d.map((x) => `<path d="${x}"/>`).join('')}</svg>` : '';
 };
 // The scroll of providers on the home page. A dot says how far each has been checked, the same as the Providers page.
-const STRIP = [['OpenRouter', 'live', 'openrouter'], ['Groq', 'live', null], ['Requesty', 'list', null], ['OmniaKey', 'list', null], ['Cerebras', 'preset', null], ['OpenAI', 'preset', 'openai'], ['Mistral', 'preset', 'mistralai'], ['Together', 'preset', null], ['Ollama', 'preset', 'ollama'], ['Anthropic', 'preset', 'anthropic'], ['Google', 'preset', 'google']];
+const STRIP = [['OpenRouter', 'live', 'openrouter'], ['Groq', 'live', 'groq'], ['Requesty', 'list', 'requesty'], ['OmniaKey', 'list', 'omniakey'], ['Cerebras', 'preset', null], ['OpenAI', 'preset', 'openai'], ['Mistral', 'preset', 'mistralai'], ['Together', 'preset', null], ['Ollama', 'preset', 'ollama'], ['Anthropic', 'preset', 'anthropic'], ['Google', 'preset', 'google']];
 const STRIP_WORDS = { live: 'answered a live call', list: 'model list read', preset: 'preset, not yet called live' };
-const stripItems = STRIP.map(([n, k, l]) => `<li><i class="dot ${k}"></i>${l ? logo(l, n) : ''}${n}</li>`).join('');
+// Three providers have no mark in Simple Icons, so their own mark is shown as an image (see site/src/logos/README.md).
+const BRAND_IMG = { groq: '/logos/groq.svg', requesty: '/logos/requesty.png', omniakey: '/logos/omniakey.svg' };
+const stripLogo = (l, n) => (BRAND_IMG[l] ? `<img class="logo logo-img" src="${BRAND_IMG[l]}" alt="" width="22" height="22">` : l ? logo(l, n) : '');
+const stripItems = STRIP.map(([n, k, l]) => `<li><i class="dot ${k}"></i>${stripLogo(l, n)}${n}</li>`).join('');
 // Models seen answering in our own live checks on 28 and 29 October 2026 (the Measured section and the checks since). More are added in the browser from KeyStone's live counts once they exist.
 const MODELS = [['claude-haiku-5.5', 'OpenRouter', 'anthropic'], ['gemini-3.8-flash', 'OpenRouter', 'googlegemini'], ['gpt-oss-20b', 'Groq', 'openai'], ['nemotron-3.5-lightning (free)', 'OpenRouter', 'nvidia'], ['mistral-small', 'OpenRouter', 'mistralai']];
 const modelItems = MODELS.map(([m, p, l]) => `<li><i class="dot live"></i>${logo(l, m)}${m}<small>${p}</small></li>`).join('');
@@ -193,6 +196,7 @@ copyFileSync(join(here, 'src/menu.js'), join(out, 'menu.js'));
 cpSync(join(here, 'src/fonts'), join(out, 'fonts'), { recursive: true });
 copyFileSync(join(here, 'src/favicon.svg'), join(out, 'favicon.svg'));
 copyFileSync(join(here, 'src/runs-on.js'), join(out, 'runs-on.js'));
+cpSync(join(here, 'src/logos'), join(out, 'logos'), { recursive: true, filter: (f) => !f.endsWith('README.md') });
 // connect-src lists exactly the origins of the live summaries named in runs-on.json (the home page's weather reads KeyStone's too).
 const connectOrigins = [...new Set([...RUNS_ON.map((r) => r.weather).filter(Boolean), 'https://keystone.extrafemi.com/api/ai-weather'].map((u) => new URL(u).origin))];
 writeFileSync(join(out, '_headers'), readFileSync(join(here, 'src/_headers'), 'utf8').replace(/connect-src [^;]*;/, `connect-src ${connectOrigins.join(' ')};`));

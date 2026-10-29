@@ -527,3 +527,5 @@ a.card.go:hover h3 { color: var(--ox); }
 .provider-strip .cap { font-size: .76rem; gap: 4px 16px; }
 .provider-strip .key { gap: 6px; }
 .provider-strip .dot { width: 9px; height: 9px; }
+
+.marquee-track li .logo-img { width: 1.1em; height: 1.1em; border-radius: 4px; object-fit: contain; flex: none; }
