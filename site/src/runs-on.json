@@ -3,13 +3,22 @@
     "name": "KeyStone",
     "url": "https://keystone.extrafemi.com/",
     "kind": "runs",
+    "logo": "keystone.svg",
     "description": "Jobs, grants and visa routes in one place. Its CV scoring and rewriting call AI models through Lodestone, on Netlify Functions.",
     "weather": "https://keystone.extrafemi.com/api/ai-weather"
+  },
+  {
+    "name": "TouchStone",
+    "url": "https://touchstone.extrafemi.com/",
+    "kind": "runs",
+    "logo": "touchstone.svg",
+    "description": "The governance layer for AI builders: describe a product, paste code or point it at a URL and get a structured audit across eight domains. Its model calls run through Lodestone: choosing and replacing models, time limits, fallbacks to other providers, spend limits and plain-language failures."
   },
   {
     "name": "Naija Eval",
     "url": "https://naija-eval.extrafemi.com/",
     "kind": "feeds",
+    "logo": "naija-eval.svg",
     "description": "An independent, reproducible scorecard for N-ATLaS on Hausa, Igbo and Yoruba, and the first evaluator to publish model-scorecard/1."
   }
 ]

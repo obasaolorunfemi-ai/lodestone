@@ -14,6 +14,26 @@ Two small JSON formats let a model evaluator and Lodestone feed each other witho
 
 Nothing here is automatic or hidden. A scorecard changes the order models are *tried* in, for tasks you name, and nothing else. A model nobody measured is never dropped, added or moved.
 
+## Why Naija Eval is a good evaluator to start with
+
+[Naija Eval](https://naija-eval.extrafemi.com) tests Nigeria's own language model, N-ATLaS, against the Llama model it was built from and four hosted models, on Hausa, Igbo and Yoruba. Four things make it a sound first source for Lodestone, and its limits are part of the answer.
+
+- **It measures what a price list cannot tell you.** Whether a model can translate between English and Hausa, Igbo or Yoruba, or transcribe speech in those languages, is not something a provider's own claims settle. Naija Eval scores each model on six translation directions (chrF++) and three speech languages (word error rate), and also shows each score ignoring tone marks, so a missing mark can be told apart from a wrong word.
+- **Anyone can re-run it.** It uses public test sets (Google's FLEURS and FLORES, CC BY-SA 4.0), one fixed prompt for every model and temperature 0. A script for each step, the results file (`summary.json`) and the scorecard (`scorecard.json`) are public, and repeating the four hosted-model runs cost $1.59. A number that can be repeated can also be checked, and corrected.
+- **It states what it did not do.** Each score rests on 100 items per language and direction, and Naija Eval calls itself a first pass, not a leaderboard. The 4-bit local models may score a point or two below full precision. The test sets are public, so any model may have seen them in training. FLEURS is clean read speech, and street voice notes will score differently.
+- **It publishes every number with what it rests on.** In `model-scorecard/1` each score carries its metric, which way is good, the number of items (`n`) and the day it was measured, so Lodestone never has to guess how much weight a figure deserves.
+
+## Why its results are reliable enough for Lodestone
+
+"Reliable" here means something narrow. Lodestone uses a scorecard to put models in a better order for a task you name, and it is built so that a wrong number cannot do much harm:
+
+- A scorecard only changes the *order* models are tried in. Nothing is added, dropped or called that you did not list.
+- A score resting on fewer than 30 items, or measured more than a year ago, is ignored. Naija Eval's scores rest on 100 items each.
+- A model nobody measured keeps its slot, an explicit `route` is never reordered, and if the scorecard cannot be fetched within 1.5 seconds the order is left alone.
+- The worst a bad number can do is put a slightly worse model first for that task. A failure or a slow answer still moves the call to the next model, as it always does.
+
+What it does not tell you: Naija Eval measures translation and speech in Hausa, Igbo and Yoruba, so use it only for tasks you tag that way. It says nothing about extracting a job posting or scoring a CV in English. And one disclosure: Naija Eval and Lodestone are both Extrafemi projects, so the evaluator is not independent of Lodestone's author. The protection is that its method and data are public, so anyone can check it.
+
 ## `model-scorecard/1`
 
 Measured results about models.

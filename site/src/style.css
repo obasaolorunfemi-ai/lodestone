@@ -581,3 +581,6 @@ a.card.go:hover h3 { color: var(--ox); }
 .doc-grid a:hover .go u { transform: translateX(4px); }
 
 .legend-line .chip { margin-right: 8px; }
+
+.fam-head { display: flex; align-items: center; gap: 14px; }
+.fam-head .logo-img { width: 40px; height: 40px; border-radius: 10px; flex: none; }
