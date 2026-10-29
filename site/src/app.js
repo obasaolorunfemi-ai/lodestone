@@ -161,6 +161,24 @@ window.addEventListener('beforeprint', () => document.querySelectorAll('.rise').
   });
 })();
 
+// Models that have answered in KeyStone's live counts join the scrolling row of models, once each, with the provider beside them.
+function addLiveModels(models) {
+  const track = $('model-track'), list = $('model-list');
+  if (!track || !list) return;
+  const have = new Set([...list.children].map((li) => li.textContent.split(',')[0].toLowerCase()));
+  const nice = (p) => ({ openrouter: 'OpenRouter', groq: 'Groq', requesty: 'Requesty', llmapi: 'LLM API', omniakey: 'OmniaKey' }[p] || p);
+  const fresh = models.filter((m) => m.answered > 0).map((m) => [String(m.model).split('/').pop(), nice(m.provider)]).filter(([n]) => !have.has(n.toLowerCase()));
+  if (!fresh.length) return;
+  const items = [...track.children].slice(0, track.children.length / 4); // four copies, so a half is wider than any screen
+  fresh.forEach(([n, p]) => {
+    const li = el('li'); li.append(el('i', 'dot live'), n, el('small', '', p)); items.push(li);
+    list.appendChild(el('li', '', n + ', through ' + p));
+  });
+  track.textContent = '';
+  for (let i = 0; i < 4; i++) items.forEach((li) => track.appendChild(i ? li.cloneNode(true) : li));
+  const note = $('model-note'); if (note) note.textContent = "Seen answering in our own checks on 28 and 29 October 2026, and in KeyStone's live counts.";
+}
+
 // Free model weather: one read of KeyStone's public summary. The section stays hidden until there is something to show:
 // a live panel with nothing in it is worse than no panel.
 (() => {
@@ -170,6 +188,7 @@ window.addEventListener('beforeprint', () => document.querySelectorAll('.rise').
     .then((r) => { if (!r.ok) throw new Error(String(r.status)); return r.json(); })
     .then((w) => {
       if (!Array.isArray(w.models) || !w.models.length) return;
+      addLiveModels(w.models);
       w.models.forEach((m) => rows.appendChild(row([
         [m.model], [m.provider], [String(m.tries), 'num2'], [m.successRate + '%', 'num2'], [String(m.timedOut), 'num2'],
         [m.medianMs == null ? 'none answered' : (m.medianMs / 1000).toFixed(1) + ' s', 'num2'],
