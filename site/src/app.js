@@ -167,11 +167,21 @@ function addLiveModels(models) {
   if (!track || !list) return;
   const have = new Set([...list.children].map((li) => li.textContent.split(',')[0].toLowerCase()));
   const nice = (p) => ({ openrouter: 'OpenRouter', groq: 'Groq', requesty: 'Requesty', llmapi: 'LLM API', omniakey: 'OmniaKey' }[p] || p);
+  const labs = (() => { try { return JSON.parse($('lab-logos').textContent); } catch (e) { return {}; } })();
+  const labOf = (n) => (/claude/i.test(n) ? 'anthropic' : /gemini|gemma/i.test(n) ? 'googlegemini' : /gpt|^o\d/i.test(n) ? 'openai' : /nemotron|nvidia/i.test(n) ? 'nvidia' : /mistral|mixtral/i.test(n) ? 'mistralai' : null);
+  const svg = (lab) => {
+    if (!lab || !labs[lab]) return null;
+    const NS = 'http://www.w3.org/2000/svg';
+    const s = document.createElementNS(NS, 'svg');
+    s.setAttribute('class', 'logo'); s.setAttribute('viewBox', '0 0 24 24'); s.setAttribute('fill', 'currentColor'); s.setAttribute('aria-hidden', 'true');
+    labs[lab].forEach((d) => { const p = document.createElementNS(NS, 'path'); p.setAttribute('d', d); s.appendChild(p); });
+    return s;
+  };
   const fresh = models.filter((m) => m.answered > 0).map((m) => [String(m.model).split('/').pop(), nice(m.provider)]).filter(([n]) => !have.has(n.toLowerCase()));
   if (!fresh.length) return;
   const items = [...track.children].slice(0, track.children.length / 4); // four copies, so a half is wider than any screen
   fresh.forEach(([n, p]) => {
-    const li = el('li'); li.append(el('i', 'dot live'), n, el('small', '', p)); items.push(li);
+    const li = el('li'); const g = svg(labOf(n)); li.append(el('i', 'dot live')); if (g) li.appendChild(g); li.append(n, el('small', '', p)); items.push(li);
     list.appendChild(el('li', '', n + ', through ' + p));
   });
   track.textContent = '';
