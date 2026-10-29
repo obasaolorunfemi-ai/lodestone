@@ -14,18 +14,47 @@ const lib = await import(join(root, 'dist/index.js'));
 const pkg = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'));
 const RUNS_ON = JSON.parse(readFileSync(join(here, 'src/runs-on.json'), 'utf8'));
 const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-const NAV = [['/', 'Home'], ['/providers/', 'Providers'], ['/model-lists/', 'Model lists'], ['/when-everything-fails/', 'When everything fails'], ['/where-it-runs/', 'Where it runs'], ['/runs-on-lodestone/', 'Runs on Lodestone'], ['/limits/', 'Honest limits'], ['/getting-smarter/', 'Getting smarter'], ['/using-it/', 'Using it'], ['/docs/', 'Docs'], ['/code-map/', 'Code map'], ['/changelog/', 'Changelog'], ['/security/', 'Security'], ['https://github.com/obasaolorunfemi-ai/lodestone', 'GitHub']];
-/** The site links, the same on every page. Docs pages count as Docs, so the Docs link is marked while you read one. */
+const GH_URL = 'https://github.com/obasaolorunfemi-ai/lodestone';
+/** Every link on the site, in groups: [title, description]. The menu and the footer both read this, so a page is added once. */
+const PAGES = {
+  home: ['/', 'Home', 'The short version'],
+  using: ['/using-it/', 'Using it', 'What a tool writes'],
+  lists: ['/model-lists/', 'Model lists', 'Lists that keep themselves alive'],
+  smarter: ['/getting-smarter/', 'Getting smarter', 'Scorecards choose the order'],
+  fails: ['/when-everything-fails/', 'When everything fails', 'Each failure, in plain words'],
+  limits: ['/limits/', 'Honest limits', 'What it does not do yet'],
+  providers: ['/providers/', 'Providers', 'How far each was checked'],
+  runs: ['/where-it-runs/', 'Where it runs', 'Netlify, Workers, Base44, Vercel, Render'],
+  runson: ['/runs-on-lodestone/', 'Runs on Lodestone', 'The tools that use it'],
+  docs: ['/docs/', 'Docs', 'Stores, budgets, runtimes'],
+  python: ['/docs/python/', 'Python port', 'Alpha, and what it lacks'],
+  map: ['/code-map/', 'Code map', 'Where each piece lives'],
+  changelog: ['/changelog/', 'Changelog', 'What changed, and what broke'],
+  security: ['/security/', 'Security', 'Reporting, and what is checked'],
+  github: [GH_URL, 'GitHub', 'Source and issues'],
+  npm: ['https://www.npmjs.com/package/@extrafemi-ai/lodestone', 'npm', '@extrafemi-ai/lodestone'],
+};
+const MENU_GROUPS = [
+  ['Start here', ['home', 'using']],
+  ['How it works', ['lists', 'smarter', 'fails', 'limits']],
+  ['Proof', ['providers', 'runs', 'runson']],
+  ['Reference', ['docs', 'map', 'changelog', 'security']],
+  ['Project', ['github', 'npm']],
+];
+const FOOT_GROUPS = [
+  ['Learn', ['using', 'lists', 'smarter', 'fails', 'limits']],
+  ['Proof', ['providers', 'runs', 'runson']],
+  ['Reference', ['docs', 'python', 'map', 'changelog', 'security']],
+  ['Project', ['github', 'npm']],
+];
 const SECTIONS = [['for', 'Who for'], ['problem', 'Problem'], ['watch', 'Watch a call'], ['measured', 'Measured'], ['weather', 'Weather']];
-/** The menu, the same on every page: the site's pages, then the sections of the home page. On the home page a section link is an in-page anchor; elsewhere it points at the home page. Weather is hidden until the home page finds counts to show. */
+const isHere = (href, path) => (href === '/' ? path === '' : href.startsWith('/') && (path === href.slice(1, -1) || (href === '/docs/' && path.startsWith('docs'))));
+/** The menu, the same on every page: the site's pages in groups, then the sections of the home page. On the home page a section link is an in-page anchor; elsewhere it points at the home page. Weather stays hidden until the home page has counts to show. */
 const navHtml = (path) => {
   const home = path === '';
-  const pages = NAV.map(([h, t]) => {
-    const here = h === '/' ? home : h.startsWith('/') && (path === h.slice(1, -1) || (h === '/docs/' && path.startsWith('docs')));
-    return `<a href="${h}"${here ? ' aria-current="page"' : ''}>${t}</a>`;
-  }).join('');
-  const sections = SECTIONS.map(([id, t]) => `<a href="${home ? '' : '/'}#${id}"${id === 'weather' ? ' id="nav-weather" hidden' : ''}>${t}</a>`).join('');
-  return `<div class="menu-group"><span class="tag">Pages</span>${pages}</div><div class="menu-group"><span class="tag">The walkthrough</span>${sections}</div>`;
+  const group = ([title, keys]) => `<div class="menu-group"><span class="tag">${title}</span>${keys.map((k) => { const [h, t, d] = PAGES[k]; return `<a href="${h}"${isHere(h, path) ? ' aria-current="page"' : ''}><span class="t">${t}</span><span class="d">${d}</span></a>`; }).join('')}</div>`;
+  const sections = SECTIONS.map(([id, t]) => `<a href="${home ? '' : '/'}#${id}"${id === 'weather' ? ' id="nav-weather" hidden' : ''}><span class="t">${t}</span></a>`).join('');
+  return MENU_GROUPS.map(group).join('') + `<div class="menu-group"><span class="tag">On the home page</span>${sections}</div>`;
 };
 
 /** A logo from the Simple Icons set (CC0), drawn inline in the text colour so it follows the light and dark theme. The marks are their owners' trademarks, shown to say what Lodestone can call and where it runs. */
@@ -35,10 +64,10 @@ const logo = (file, name) => {
   return d.length ? `<svg class="logo" viewBox="0 0 24 24" role="img" aria-label="${name} logo" fill="currentColor">${d.map((x) => `<path d="${x}"/>`).join('')}</svg>` : '';
 };
 // The scroll of providers on the home page. A dot says how far each has been checked, the same as the Providers page.
-const STRIP = [['OpenRouter', 'live', 'openrouter'], ['Groq', 'live', 'groq'], ['Requesty', 'list', 'requesty'], ['OmniaKey', 'list', 'omniakey'], ['Cerebras', 'preset', null], ['OpenAI', 'preset', 'openai'], ['Mistral', 'preset', 'mistralai'], ['Together', 'preset', null], ['Ollama', 'preset', 'ollama'], ['Anthropic', 'preset', 'anthropic'], ['Google', 'preset', 'google']];
+const STRIP = [['OpenRouter', 'live', 'openrouter'], ['Groq', 'live', 'groq'], ['Requesty', 'list', 'requesty'], ['OmniaKey', 'list', 'omniakey'], ['Cerebras', 'preset', 'cerebras'], ['OpenAI', 'preset', 'openai'], ['Mistral', 'preset', 'mistralai'], ['Together', 'preset', 'together'], ['Ollama', 'preset', 'ollama'], ['Anthropic', 'preset', 'anthropic'], ['Google', 'preset', 'google']];
 const STRIP_WORDS = { live: 'answered a live call', list: 'model list read', preset: 'preset, not yet called live' };
-// Three providers have no mark in Simple Icons, so their own mark is shown as an image (see site/src/logos/README.md).
-const BRAND_IMG = { groq: '/logos/groq.svg', requesty: '/logos/requesty.png', omniakey: '/logos/omniakey.svg' };
+// Providers with no mark in Simple Icons show their own mark, taken from their site, as an image (see site/src/logos/README.md).
+const BRAND_IMG = { groq: '/logos/groq.svg', requesty: '/logos/requesty.png', omniakey: '/logos/omniakey.svg', cerebras: '/logos/cerebras.png', together: '/logos/together.png', llmapi: '/logos/llmapi.svg', base44: '/logos/base44.png' };
 const stripLogo = (l, n) => (BRAND_IMG[l] ? `<img class="logo logo-img" src="${BRAND_IMG[l]}" alt="" width="22" height="22">` : l ? logo(l, n) : '');
 const stripItems = STRIP.map(([n, k, l]) => `<li><i class="dot ${k}"></i>${stripLogo(l, n)}${n}</li>`).join('');
 // Models seen answering in our own live checks on 28 and 29 October 2026 (the Measured section and the checks since). More are added in the browser from KeyStone's live counts once they exist.
@@ -56,20 +85,13 @@ const siteBar = (path) => `<div class="col sitebar-in"><a class="brand" href="/"
 const DOWN = 'https://down.extrafemi.com';
 const badge = (slug, style, w, h, alt) => `<img class="b-light" src="${DOWN}/badge/${slug}.svg?style=${style}&amp;accent=6b1410&amp;bg=fffefb&amp;radius=16" width="${w}" height="${h}" alt="${alt}" loading="lazy" decoding="async"><img class="b-dark" src="${DOWN}/badge/${slug}.svg?style=${style}&amp;theme=dark" width="${w}" height="${h}" alt="${alt}" loading="lazy" decoding="async">`;
 const STATUS_ALT = 'Lodestone status, monitored by Down in Nigeria';
-/** The footer, the same on every page: the status badge, the brand, the walkthrough, the pages and the project. On the home page the walkthrough links are in-page anchors; elsewhere they point at the home page. The Pages column is read from NAV, so a new page cannot be left out of it. */
+/** The footer, the same on every page: the status badge, the brand, and four columns (Learn, Proof, Reference, Project) read from the same list as the menu, so a new page cannot be left out of either. */
 const footHtml = (home) => {
-  const up = home ? '' : '/';
-  const li = (h, t) => `<li><a href="${h}">${t}</a></li>`;
-  const walk = SECTIONS.filter(([id]) => id !== 'weather').map(([id, t]) => li(`${up}#${id}`, t)).join('');
-  const SKIP = new Set(['/', '/changelog/', '/security/', 'https://github.com/obasaolorunfemi-ai/lodestone']);
-  const pages = NAV.filter(([h]) => !SKIP.has(h)).map(([h, t]) => li(h, t)).join('') + li('/docs/python/', 'Python port');
-  const project = [['https://github.com/obasaolorunfemi-ai/lodestone', 'GitHub'], ['https://www.npmjs.com/package/@extrafemi-ai/lodestone', 'npm'], ['/changelog/', 'Changelog'], ['/security/', 'Security'], ['https://naija-eval.extrafemi.com/', 'Naija Eval'], ['https://keystone.extrafemi.com/', 'KeyStone']].map(([h, t]) => li(h, t)).join('');
+  const col = ([title, keys]) => `<nav aria-label="${title}"><h3>${title}</h3><ul>${keys.map((k) => { const [h, t] = PAGES[k]; return `<li><a href="${h}">${t}</a></li>`; }).join('')}${title === 'Project' ? '<li><a href="https://naija-eval.extrafemi.com/">Naija Eval</a></li><li><a href="https://keystone.extrafemi.com/">KeyStone</a></li>' : ''}</ul></nav>`;
   return `<footer class="site-foot">${statusBlock}
   <div class="col foot-cols">
-    <div><div class="mark">Lodestone</div><p>A small library that keeps AI calls working when a model is withdrawn, slow, rate-limited or down.</p></div>
-    <nav aria-label="The walkthrough"><h3>The walkthrough</h3><ul>${walk}</ul></nav>
-    <nav aria-label="Pages"><h3>Pages</h3><ul>${pages}</ul></nav>
-    <nav aria-label="Project"><h3>Project</h3><ul>${project}</ul></nav>
+    <div><div class="mark">Lodestone</div><p>A small library that keeps AI calls working when a model is withdrawn, slow, rate-limited or down.</p><p class="foot-home"><a href="${home ? '#for' : '/'}">${home ? 'Back to the top of the walkthrough' : 'The walkthrough on the home page'}</a></p></div>
+    ${FOOT_GROUPS.map(col).join('\n    ')}
   </div>
   <div class="col foot-base">
     <p>Lodestone ${pkg.version} · built from commit ${commit} on ${date} · MIT licence. Cardo and Lora are set in the SIL Open Font Licence and are served from this site.</p>
@@ -118,6 +140,7 @@ const vet = rows.map(([id, from, m]) => {
 }).join('');
 
 // 3. How far each provider preset has been checked. Edit this when that changes; it is a claim, so it is written by hand.
+const SVC_LOGO = { Groq: 'groq', Requesty: 'requesty', 'LLM API': 'llmapi', OmniaKey: 'omniakey', Cerebras: 'cerebras', OpenRouter: 'openrouter' };
 const providers = [
   ['groq()', 'Groq', 'ok', 'a chat call answered live on 28 Oct 2026 (openai/gpt-oss-20b, about 1 s); the model list was read, 11 entries of which 4 are chat models', 'the list also holds speech and safety models, which Lodestone now leaves out; the model Lodestone first listed, llama-3.3-70b-versatile, had been withdrawn (a 404, reported as withdrawn)'],
   ['requesty()', 'Requesty', 'warn', 'key accepted and the model list read live (807 chat models, with price, lab and data policy)', 'the chat call was refused with 402, payment required, because the account had no credit, so no answer has been seen from it'],
@@ -128,7 +151,7 @@ const providers = [
   ['ollama()', 'a local server', 'warn', 'the standard local endpoint', 'untested here'],
   ['(built in) openrouter', 'OpenRouter', 'ok', 'used in production for the default path', 'catalogue, calls, cost and expiry dates all seen live'],
   ['anthropic(), google()', 'direct', 'warn', 'request shape tested against the documented format', 'not called live'],
-].map(([preset, svc, tone, what, note]) => `<tr><td><code>${esc(preset)}</code></td><td>${esc(svc)}</td><td><span class="chip ${tone}">${tone === 'ok' ? 'checked' : 'partly'}</span> ${esc(what)}<br><small>${esc(note)}</small></td></tr>`).join('');
+].map(([preset, svc, tone, what, note]) => `<tr><td><code>${esc(preset)}</code></td><td>${SVC_LOGO[svc] ? stripLogo(SVC_LOGO[svc], svc) + ' ' : ''}${esc(svc)}</td><td><span class="chip ${tone}">${tone === 'ok' ? 'checked' : 'partly'}</span> ${esc(what)}<br><small>${esc(note)}</small></td></tr>`).join('');
 
 // 4. The code map, from the real tree.
 const DESC = {
@@ -408,13 +431,13 @@ try {
 <div class="platforms">
 <div class="plat prod"><div class="plat-head">${logo('netlify', 'Netlify')}<h2>Netlify</h2></div><span class="chip ok">In production</span><p>KeyStone calls AI models through Lodestone from Netlify Functions, with the 30 second function limit and a 24 second time budget.</p><p class="store">Shared state: <code>netlifyBlobsStore</code></p></div>
 <div class="plat"><div class="plat-head">${logo('cloudflareworkers', 'Cloudflare Workers')}<h2>Cloudflare Workers</h2></div><span class="chip info">Runtime tested</span><p>The checks run inside <code>workerd</code>, Cloudflare's own runtime, with no Node compatibility flag, on every change. Not deployed to a live Worker yet.</p><p class="store">Shared state: <code>cloudflareKvStore</code> for the catalogue and cached answers; Upstash for counters</p></div>
-<div class="plat"><div class="plat-head"><h2>Base44</h2></div><span class="chip info">Runtime tested</span><p>Base44 says <a href="https://docs.base44.com/developers/backend/resources/backend-functions/overview">its backend functions run on Deno</a>, and the checks run on Deno. Not deployed on Base44 yet. Import it with the <code>npm:</code> prefix.</p><p class="store">Shared state: <code>upstashStore</code> over HTTP, or memory</p></div>
+<div class="plat"><div class="plat-head"><img class="logo logo-img" src="/logos/base44.png" alt="" width="28" height="28"><h2>Base44</h2></div><span class="chip info">Runtime tested</span><p>Base44 says <a href="https://docs.base44.com/developers/backend/resources/backend-functions/overview">its backend functions run on Deno</a>, and the checks run on Deno. Not deployed on Base44 yet. Import it with the <code>npm:</code> prefix.</p><p class="store">Shared state: <code>upstashStore</code> over HTTP, or memory</p></div>
 <div class="plat"><div class="plat-head">${logo('vercel', 'Vercel')}<h2>Vercel</h2></div><span class="chip info">Runtime tested</span><p>Vercel's Node.js functions run the same code the checks run on Node 20, 22 and 24. Not deployed on Vercel yet, and its Edge runtime has not been checked separately.</p><p class="store">Shared state: <code>upstashStore</code> over HTTP, or memory</p></div>
 <div class="plat"><div class="plat-head">${logo('render', 'Render')}<h2>Render</h2></div><span class="chip info">Runtime tested</span><p>A Render web service is a Node server, covered by the Node checks. Not deployed on Render yet. A server has no function time limit, but the time budget still protects the person who is waiting.</p><p class="store">Shared state: <code>upstashStore</code>, or memory on a single instance</p></div>
 </div>
 <h2>Runtimes checked on every change</h2>
 <div class="runtimes-row"><span>Node 20</span><span>Node 22</span><span>Node 24</span><span>Cloudflare workerd</span><span>Deno</span><span>Bun</span><span>Python 3.10, 3.12, 3.13 (alpha port: live calls to Groq and OpenRouter answered; everything else tested against fakes)</span></div>
-<p class="cap logo-note">Logos are from the <a href="https://simpleicons.org">Simple Icons</a> set (CC0) and belong to their owners; they are here to say where Lodestone runs, not to imply endorsement. Base44 has no mark in that set, so it appears as a name.</p>
+<p class="cap logo-note">Logos are from the <a href="https://simpleicons.org">Simple Icons</a> set (CC0) where it has them, and otherwise each company's own mark from its site. They belong to their owners and are here to say where Lodestone runs, not to imply endorsement.</p>
 <p class="cap">"Runtime tested" is a claim about the runtime, not the platform: a platform can add limits of its own, such as a smaller time limit or no writable disk. It moves to "In production" only when something real is deployed there.</p>
 <p class="cap">Deployed it somewhere not listed, or on one of these? <a href="https://github.com/obasaolorunfemi-ai/lodestone/issues/new">Tell us in an issue</a>. More detail: <a href="/docs/runtimes/">Runtimes</a>, <a href="/docs/stores/">Stores</a>, <a href="/docs/python/">the Python port</a>.</p>` },
 ];
