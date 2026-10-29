@@ -377,7 +377,7 @@ a.card:hover { border-color: var(--ink-3); transform: translateY(-2px); }
 .site-foot.slim { padding-block: 24px 40px; }
 
 /* Menu button: shown only where the links no longer fit on one line (phones and tablets). */
-.menu-btn, .sections .menu-only { display: none; }
+.menu-btn { display: none; }
 .menu-btn .i-close { display: none; }
 .menu-btn[aria-expanded="true"] .i-open { display: none; }
 .menu-btn[aria-expanded="true"] .i-close { display: block; }
@@ -386,11 +386,39 @@ a.card:hover { border-color: var(--ink-3); transform: translateY(-2px); }
   .menu-btn { display: grid; }
   .sections { position: absolute; left: 0; right: 0; top: 100%; flex: none; flex-direction: column; gap: 0; overflow: visible; -webkit-mask-image: none; mask-image: none; padding: 6px clamp(16px, 4vw, 64px) 14px; background: var(--paper); border-bottom: 1px solid var(--rule); max-height: calc(100dvh - 64px); overflow-y: auto; }
   .sections a:first-child { margin-left: 0; }
-  .sections .menu-only { display: inline-flex; }
-  .sections .menu-only:not(.menu-only + .menu-only) { margin-top: 8px; border-top: 1px solid var(--rule); }
   .sections a { min-height: 48px; padding: 0 4px; border-radius: 0; font-size: clamp(1rem, .95rem + .3vw, 1.12rem); border-bottom: 1px solid var(--rule-soft); }
   .sections a:last-child { border-bottom: 0; }
   .sections a:hover { background: transparent; color: var(--ox); }
   .js .sections { display: none; }
   .js .sections.open { display: flex; }
 }
+
+/* On this page: the sections of the home page, in a bar under the site links */
+.onpage { display: flex; gap: 2px; overflow-x: auto; scrollbar-width: none; border-top: 1px solid var(--rule-soft); padding-inline: clamp(16px, 4vw, 64px); -webkit-mask-image: linear-gradient(90deg, transparent, #000 14px, #000 calc(100% - 14px), transparent); mask-image: linear-gradient(90deg, transparent, #000 14px, #000 calc(100% - 14px), transparent); }
+.onpage::-webkit-scrollbar { display: none; }
+.onpage a { flex: none; display: inline-flex; align-items: center; min-height: 40px; padding: 0 12px; border-radius: 999px; color: var(--ink-3); text-decoration: none; font-size: .86rem; white-space: nowrap; transition: color .15s, background .15s; }
+.onpage a[hidden] { display: none; }
+.onpage a:hover { color: var(--ink); background: var(--panel); }
+.onpage a[aria-current] { color: var(--ox); font-weight: 600; }
+.sections a[aria-current="page"] { color: var(--ox); font-weight: 600; }
+a.card.go { text-decoration: none; color: inherit; transition: border-color .2s, transform .25s var(--ease); }
+a.card.go:hover { border-color: var(--ox); transform: translateY(-2px); }
+a.card.go:hover h3 { color: var(--ox); }
+
+/* Standalone pages that are wider than the docs column */
+.doc.wide { max-width: 80rem; width: min(80rem, 100% - 2 * clamp(16px, 4vw, 64px)); }
+.doc.wide .lead { color: var(--ink-2); font-size: clamp(1.05rem, 1rem + .3vw, 1.2rem); max-width: 40em; }
+.doc.wide .cap { color: var(--ink-3); font-size: .93rem; max-width: 52em; }
+
+/* Where it runs */
+.platforms { display: grid; grid-template-columns: repeat(auto-fit, minmax(15.5rem, 1fr)); gap: 14px; margin-block: .6rem 1rem; }
+.plat { border: 1px solid var(--rule); border-radius: 20px; background: var(--surface); padding: 22px 22px 20px; display: grid; gap: 10px; align-content: start; }
+.plat h2 { font: 700 clamp(1.6rem, 1.3rem + 1vw, 2.1rem)/1.05 var(--f-display); letter-spacing: -0.02em; margin: 0; }
+.plat p { color: var(--ink-2); font-size: .95rem; }
+.plat .store { color: var(--ink-3); font-size: .86rem; border-top: 1px solid var(--rule); padding-top: 10px; }
+.plat.prod { border-color: var(--good); }
+.runtimes-row { display: flex; flex-wrap: wrap; gap: 8px; margin-block: .4rem 1rem; }
+.runtimes-row span { border: 1px solid var(--rule); border-radius: 999px; padding: 6px 14px; background: var(--surface); font-size: .9rem; }
+.legend-chips { display: flex; flex-wrap: wrap; gap: 8px 22px; color: var(--ink-2); font-size: .9rem; }
+.chip.info { color: var(--info); border-color: var(--info); background: var(--info-wash); }
+.doc .map { margin-block: .6rem; }

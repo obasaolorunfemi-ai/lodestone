@@ -13,6 +13,12 @@ const out = join(here, 'public');
 const lib = await import(join(root, 'dist/index.js'));
 const pkg = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'));
 const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+const NAV = [['/', 'Home'], ['/providers/', 'Providers'], ['/where-it-runs/', 'Where it runs'], ['/docs/', 'Docs'], ['/code-map/', 'Code map'], ['/changelog/', 'Changelog'], ['/security/', 'Security'], ['https://github.com/obasaolorunfemi-ai/lodestone', 'GitHub']];
+/** The site links, the same on every page. Docs pages count as Docs, so the Docs link is marked while you read one. */
+const navHtml = (path) => NAV.map(([h, t]) => {
+  const here = h === '/' ? path === '' : h.startsWith('/') && (path === h.slice(1, -1) || (h === '/docs/' && path.startsWith('docs')));
+  return `<a href="${h}"${here ? ' aria-current="page"' : ''}>${t}</a>`;
+}).join('');
 
 // 1. The failure kinds, with the library's own sentences.
 const { LodestoneError, explain } = lib;
@@ -119,7 +125,7 @@ const ticker = ['<b>0</b> dependencies', 'runs on Node, Workers, Deno and Bun', 
 rmSync(out, { recursive: true, force: true });
 mkdirSync(out, { recursive: true });
 const html = readFileSync(join(here, 'src/index.html'), 'utf8')
-  .replaceAll('{{v}}', v).replaceAll('{{ticker}}', ticker).replaceAll('{{kinds}}', String(kinds)).replaceAll('{{Kinds}}', WORD[kinds] ?? String(kinds)).replaceAll('{{version}}', pkg.version).replaceAll('{{commit}}', commit).replaceAll('{{date}}', date)
+  .replaceAll('{{v}}', v).replaceAll('{{nav}}', navHtml('')).replaceAll('{{ticker}}', ticker).replaceAll('{{kinds}}', String(kinds)).replaceAll('{{Kinds}}', WORD[kinds] ?? String(kinds)).replaceAll('{{version}}', pkg.version).replaceAll('{{commit}}', commit).replaceAll('{{date}}', date)
   .replace('{{providers}}', providers).replace('{{vet}}', vet).replace('{{filemap}}', filemap)
   .replace('{{data}}', JSON.stringify({ errors }).replace(/</g, '\\u003c'));
 writeFileSync(join(out, 'index.html'), html);
@@ -195,7 +201,7 @@ function md(src, fromFile) {
 }
 
 const css1 = `<link rel="icon" href="/favicon.svg" type="image/svg+xml"><link rel="stylesheet" href="/fonts/fonts.css"><link rel="stylesheet" href="/style.css?v=${v}"><script src="/theme.js?v=${v}"></script><script src="/menu.js?v=${v}" defer></script>`;
-const page = ({ path, title, desc, body, crumbs = true }) => `<!doctype html>
+const page = ({ path, title, desc, body, crumbs = true, wide = false }) => `<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>${esc(title)} · Lodestone</title>
 <meta name="description" content="${esc(desc)}">
@@ -204,11 +210,11 @@ const page = ({ path, title, desc, body, crumbs = true }) => `<!doctype html>
 <meta name="theme-color" content="#fdfcf9" media="(prefers-color-scheme: light)"><meta name="theme-color" content="#12110e" media="(prefers-color-scheme: dark)">
 ${css1}</head>
 <body><a class="skip" href="#main">Skip to content</a>
-<header class="sitebar"><div class="col sitebar-in"><a class="brand" href="/">Lodestone</a><nav class="sections" id="sections" aria-label="Sections"><a href="/">Home</a><a href="/docs/">Docs</a><a href="/security/">Security</a><a href="/changelog/">Changelog</a><a href="https://github.com/obasaolorunfemi-ai/lodestone">GitHub</a></nav><button type="button" class="icon-btn menu-btn" id="menu" aria-expanded="false" aria-controls="sections" aria-label="Open menu"><svg class="i-open" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg><svg class="i-close" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div></header>
-<main id="main" class="doc">${crumbs ? '<p class="crumbs tag"><a href="/docs/">Docs</a></p>' : ''}
+<header class="sitebar"><div class="col sitebar-in"><a class="brand" href="/">Lodestone</a><nav class="sections" id="sections" aria-label="Site">${navHtml(path)}</nav><button type="button" class="icon-btn menu-btn" id="menu" aria-expanded="false" aria-controls="sections" aria-label="Open menu"><svg class="i-open" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg><svg class="i-close" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div></header>
+<main id="main" class="doc${wide ? ' wide' : ''}">${crumbs ? '<p class="crumbs tag"><a href="/docs/">Docs</a></p>' : ''}
 ${body}
 </main>
-<footer class="site-foot slim"><div class="col foot-base"><p>Lodestone ${pkg.version} · built from commit ${commit} on ${date} · MIT licence. This page is built from <a href="${GH}">the repository</a>'s own markdown.</p><p>© 2026 Extrafemi · No cookies, no tracking.</p></div></footer>
+<footer class="site-foot slim"><div class="col foot-base"><p>${NAV.map(([h, t]) => `<a href="${h}">${t}</a>`).join(' · ')}</p><p>Lodestone ${pkg.version} · built from commit ${commit} on ${date} · MIT licence. This page is built from <a href="${GH}">the repository</a>'s own markdown.</p><p>© 2026 Extrafemi · No cookies, no tracking.</p></div></footer>
 </body></html>
 `;
 
@@ -226,6 +232,34 @@ mkdirSync(join(out, 'docs'), { recursive: true });
 writeFileSync(join(out, 'docs/index.html'), page({ path: 'docs', title: 'Docs', desc: 'Documentation for Lodestone: stores, protecting your budget, runtimes, the Python port, scorecards, security and the changelog.', crumbs: false,
   body: `<h1>Docs</h1><p>Built from the markdown in the repository. The <a href="/">home page</a> is the walkthrough; these are the details.</p><ul class="doc-list">${DOCS.map((d) => `<li><a href="/${d.path}/"><b>${esc(d.title)}</b><span>${esc(d.desc)}</span></a></li>`).join('')}<li><a href="${GH}README.md"><b>README</b><span>The full reference for the TypeScript library, on GitHub.</span></a></li></ul>` }));
 pages.splice(1, 0, { loc: '/docs/', lastmod: date });
+
+// 6b. Pages that used to be sections of the home page, and the platforms page.
+const providersCap = 'A "model list read" means Lodestone\'s reader was run against the service\'s real list and parsed it correctly. A chat call has been seen to answer only on Groq (and on OpenRouter, in production); the others are tested against fakes of the documented request, not against the service itself. A live check on 28 October 2026 is how the withdrawn Groq model and the non-chat entries in its list were found, which is why those are in the notes. Requesty and LLM API have no free models; they add redundancy on the paid path. Free redundancy comes from providers with free tiers, such as Groq and Cerebras.';
+const extras = [
+  { path: 'providers', title: 'Providers', desc: 'Every fallback provider Lodestone has a preset for, and exactly how far each has been checked.', wide: true,
+    body: `<h1>Providers</h1><p class="lead">Any service that speaks OpenAI's chat API works through <code>openaiCompatible()</code>, and presets exist for the ones Lodestone has been checked against. Here is exactly how far each check went.</p><div class="tablewrap"><table><thead><tr><th>Preset</th><th>Service</th><th>What was checked</th></tr></thead><tbody>${providers}</tbody></table></div><p class="cap">${esc(providersCap)}</p><p class="cap">Checking a provider yourself: <code>node scripts/live-check.mjs</code> in the repository calls each one once with keys from your environment and prints what happened, without printing a key.</p>` },
+  { path: 'code-map', title: 'Code map', desc: 'Where each piece of Lodestone lives in src/, generated from the repository.', wide: true,
+    body: `<h1>Code map</h1><p class="lead">Where each piece lives in <code>src/</code>. This is generated from the files in the repository when the site is built. <b>+tests</b> marks a file with its own test file; the others are covered by a shared one or by the call-path tests.</p><div class="map">${filemap}</div>` },
+  { path: 'where-it-runs', title: 'Where it runs', desc: 'Netlify, Cloudflare Workers, Base44, Vercel and Render: which run Lodestone in production, which are checked in CI, and which are not tested yet.', wide: true,
+    body: `<h1>Where it runs</h1><p class="lead">Lodestone uses only <code>fetch</code>, <code>AbortSignal</code> and <code>URL</code>, so it runs wherever your function does. This page says, for each platform, how much of that has been seen and not just assumed.</p>
+<div class="legend-chips"><span><span class="chip ok">In production</span> a real app runs on it</span><span><span class="chip info">Runtime tested</span> the same checks run on that platform's runtime in CI, but nothing of ours is deployed there</span></div>
+<div class="platforms">
+<div class="plat prod"><h2>Netlify</h2><span class="chip ok">In production</span><p>KeyStone calls AI models through Lodestone from Netlify Functions, with the 30 second function limit and a 24 second time budget.</p><p class="store">Shared state: <code>netlifyBlobsStore</code></p></div>
+<div class="plat"><h2>Cloudflare Workers</h2><span class="chip info">Runtime tested</span><p>The checks run inside <code>workerd</code>, Cloudflare's own runtime, with no Node compatibility flag, on every change. Not deployed to a live Worker yet.</p><p class="store">Shared state: <code>cloudflareKvStore</code> for the catalogue and cached answers; Upstash for counters</p></div>
+<div class="plat"><h2>Base44</h2><span class="chip info">Runtime tested</span><p>Base44 says <a href="https://docs.base44.com/developers/backend/resources/backend-functions/overview">its backend functions run on Deno</a>, and the checks run on Deno. Not deployed on Base44 yet. Import it with the <code>npm:</code> prefix.</p><p class="store">Shared state: <code>upstashStore</code> over HTTP, or memory</p></div>
+<div class="plat"><h2>Vercel</h2><span class="chip info">Runtime tested</span><p>Vercel's Node.js functions run the same code the checks run on Node 20, 22 and 24. Not deployed on Vercel yet, and its Edge runtime has not been checked separately.</p><p class="store">Shared state: <code>upstashStore</code> over HTTP, or memory</p></div>
+<div class="plat"><h2>Render</h2><span class="chip info">Runtime tested</span><p>A Render web service is a Node server, covered by the Node checks. Not deployed on Render yet. A server has no function time limit, but the time budget still protects the person who is waiting.</p><p class="store">Shared state: <code>upstashStore</code>, or memory on a single instance</p></div>
+</div>
+<h2>Runtimes checked on every change</h2>
+<div class="runtimes-row"><span>Node 20</span><span>Node 22</span><span>Node 24</span><span>Cloudflare workerd</span><span>Deno</span><span>Bun</span><span>Python 3.10, 3.12, 3.13 (alpha port)</span></div>
+<p class="cap">"Runtime tested" is a claim about the runtime, not the platform: a platform can add limits of its own, such as a smaller time limit or no writable disk. It moves to "In production" only when something real is deployed there.</p>
+<p class="cap">Deployed it somewhere not listed, or on one of these? <a href="https://github.com/obasaolorunfemi-ai/lodestone/issues/new">Tell us in an issue</a>. More detail: <a href="/docs/runtimes/">Runtimes</a>, <a href="/docs/stores/">Stores</a>, <a href="/docs/python/">the Python port</a>.</p>` },
+];
+for (const x of extras) {
+  mkdirSync(join(out, x.path), { recursive: true });
+  writeFileSync(join(out, x.path, 'index.html'), page({ path: x.path, title: x.title, desc: x.desc, body: x.body, crumbs: false, wide: x.wide }));
+  pages.push({ loc: `/${x.path}/`, lastmod: date });
+}
 writeFileSync(join(out, 'sitemap.xml'), `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${pages.map((p) => `<url><loc>${SITE}${p.loc}</loc><lastmod>${p.lastmod}</lastmod></url>`).join('')}</urlset>\n`);
 
 // 7. Files for machines: security.txt (RFC 9116), and llms.txt / llms-full.txt for AI assistants that read the site.
@@ -247,6 +281,9 @@ writeFileSync(join(out, 'llms.txt'), `# Lodestone
 - [Home](${SITE}/): an interactive walkthrough with a simulator, measurements and the failure messages
 - [README](${GH}README.md): the full reference for the TypeScript library
 - [Python port](${SITE}/docs/python/): the alpha Python package and what it lacks
+- [Providers](${SITE}/providers/): every fallback provider and how far each was checked
+- [Where it runs](${SITE}/where-it-runs/): Netlify, Cloudflare Workers, Base44, Vercel and Render, and what has been verified on each
+- [Code map](${SITE}/code-map/): where each piece lives in src/
 
 ## Docs
 

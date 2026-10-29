@@ -152,7 +152,7 @@ window.addEventListener('beforeprint', () => document.querySelectorAll('.rise').
   addEventListener('resize', update);
   update();
 
-  const links = [...document.querySelectorAll('.sections a[href^="#"]')];
+  const links = [...document.querySelectorAll('.onpage a[href^="#"]')];
   const targets = links.map((a) => $(a.hash.slice(1))).filter(Boolean);
   const so = new IntersectionObserver((es) => {
     const vis = es.filter((e) => e.isIntersecting).sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
