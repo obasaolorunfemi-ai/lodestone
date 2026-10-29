@@ -23,11 +23,18 @@ for (const [name, key, preset, models, baseUrl] of checks) {
     rows.push({ preset: name, result: 'answered', model: r.model, seconds: +((Date.now() - t0) / 1000).toFixed(1), usage: r.usage ?? null });
   } catch (err) {
     rows.push({ preset: name, result: 'failed', kind: err.kind, seconds: +((Date.now() - t0) / 1000).toFixed(1), say: explain(err, { product: 'check' }), attempts: attempts.map((a) => `${a.model}: ${a.outcome}${a.status ? ' ' + a.status : ''}`) });
+    // Lodestone keeps a provider's own words out of errors, so ask once more, directly, with a fixed harmless prompt, and print what it says.
+    try {
+      const r = await fetch(`${baseUrl}/chat/completions`, { method: 'POST', headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ model: models[0], max_tokens: 5, messages: [{ role: 'user', content: 'Reply with: ok' }] }), signal: AbortSignal.timeout(15_000) });
+      const text = (await r.text()).split(key).join('[key]').slice(0, 300);
+      console.log(`${name} said, directly: HTTP ${r.status} ${text}`);
+    } catch (e) { console.log(`${name} direct call failed: ${String(e.message).slice(0, 120)}`); }
   }
   // The model list: the HTTP status of GET /models with this key, and whether Lodestone's reader parsed it.
   try {
     const status = (await fetch(`${baseUrl}/models`, { headers: { Authorization: `Bearer ${key}` }, signal: AbortSignal.timeout(10_000) })).status;
     const list = await preset().listModels(key);
+    if (list && name === 'omniakey()') console.log(`${name} chat models (first 60): ${list.slice(0, 60).map((m) => m.id).join(', ')}`);
     rows.push({ preset: name + ' list', result: list ? `read ${list.length} chat models` : 'not read', detail: `GET /models answered ${status}${status === 401 || status === 403 ? ': the service rejected this key' : ''}` });
   } catch (err) { rows.push({ preset: name + ' list', result: 'error', detail: String(err.message).slice(0, 120) }); }
 }

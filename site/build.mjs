@@ -29,7 +29,7 @@ const navHtml = (path) => {
 };
 
 // The scroll of providers on the home page. A dot says how far each has been checked, the same as the Providers page.
-const STRIP = [['OpenRouter', 'live'], ['Groq', 'live'], ['Requesty', 'list'], ['LLM API', 'list'], ['OmniaKey', 'preset'], ['Cerebras', 'preset'], ['OpenAI', 'preset'], ['Mistral', 'preset'], ['Together', 'preset'], ['Ollama', 'preset'], ['Anthropic', 'preset'], ['Google', 'preset']];
+const STRIP = [['OpenRouter', 'live'], ['Groq', 'live'], ['Requesty', 'list'], ['OmniaKey', 'preset'], ['Cerebras', 'preset'], ['OpenAI', 'preset'], ['Mistral', 'preset'], ['Together', 'preset'], ['Ollama', 'preset'], ['Anthropic', 'preset'], ['Google', 'preset']];
 const STRIP_WORDS = { live: 'answered a live call', list: 'model list read', preset: 'preset, not yet called live' };
 const stripItems = STRIP.map(([n, k]) => `<li><i class="dot ${k}"></i>${n}</li>`).join('');
 const providerStrip = `<section class="provider-strip" aria-labelledby="strip-h"><p class="tag" id="strip-h">Calls through</p><div class="marquee" aria-hidden="true"><ul class="marquee-track">${stripItems}${stripItems}</ul></div><ul class="visually-hidden">${STRIP.map(([n, k]) => `<li>${n}: ${STRIP_WORDS[k]}</li>`).join('')}</ul><p class="cap"><span class="key"><i class="dot live"></i>answered a live call</span><span class="key"><i class="dot list"></i>model list read</span><span class="key"><i class="dot preset"></i>preset, not yet called live</span> <a href="/providers/">How far each was checked</a></p></section>`;
