@@ -56,8 +56,8 @@ const LANES = [['free', 'Free'], ['paid', 'Paid'], ['fallback', 'Fallback']];
 
 let cur = 'badday', timers = [];
 const scen = $('scen');
-S.forEach((x) => { const b = el('button'); b.type = 'button'; b.dataset.id = x.id; b.setAttribute('aria-pressed', 'false'); b.append(x.t, el('small', '', x.s)); scen.appendChild(b); });
-scen.addEventListener('click', (e) => { const b = e.target.closest('button'); if (b) run(b.dataset.id); });
+S.forEach((x) => { const o = el('option', '', x.t + ' \u2014 ' + x.s); o.value = x.id; scen.appendChild(o); });
+scen.addEventListener('change', () => run(scen.value));
 $('replay').addEventListener('click', () => run(cur));
 const scale = $('scale');
 
@@ -68,7 +68,7 @@ function run(id) {
   SPAN = Math.max(12, Math.ceil((total + 0.5) / 3) * 3);
   scale.textContent = '';
   for (let s = 0; s <= SPAN; s += 3) { const sp = el('span', '', s + 's'); sp.style.left = pct(s); scale.appendChild(sp); }
-  scen.querySelectorAll('button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.id === id)));
+  scen.value = id;
   $('stitle').textContent = sc.t; $('scall').textContent = sc.call; $('scfg').textContent = sc.cfg; $('clock').textContent = '0.0 s of 24 s';
 
   const lanes = $('lanes'); lanes.textContent = '';

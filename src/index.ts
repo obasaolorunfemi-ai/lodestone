@@ -28,7 +28,7 @@ export { CANDIDATES_SCHEMA } from './candidates.js';
 export type { Candidates, Candidate } from './candidates.js';
 export { createHealth } from './health.js';
 export type { Health, HealthOptions, ModelHealth } from './health.js';
-export { openaiCompatible, requesty, llmapi, groq, cerebras, openai, mistral, together, ollama, normalizeRequesty, normalizeLlmapi, normalizeGroq } from './providers/openaiCompatible.js';
+export { openaiCompatible, requesty, llmapi, groq, cerebras, omniakey, openai, mistral, together, ollama, normalizeRequesty, normalizeLlmapi, normalizeGroq } from './providers/openaiCompatible.js';
 export type { OpenAICompatibleOptions, PresetOptions } from './providers/openaiCompatible.js';
 export { vet, publisherOf, DEFAULT_PUBLISHERS } from './trust.js';
 export type { TrustPolicy, Verdict } from './trust.js';

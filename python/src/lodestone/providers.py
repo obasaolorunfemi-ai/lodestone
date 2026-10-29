@@ -108,6 +108,10 @@ def groq() -> OpenAICompatible:
     return OpenAICompatible("groq", "https://api.groq.com/openai/v1")
 
 
+def omniakey() -> OpenAICompatible:
+    return OpenAICompatible("omniakey", "https://api.omniakey.com/v1")
+
+
 def cerebras() -> OpenAICompatible:
     return OpenAICompatible("cerebras", "https://api.cerebras.ai/v1")
 

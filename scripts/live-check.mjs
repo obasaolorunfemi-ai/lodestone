@@ -2,13 +2,15 @@
 // environment and are never printed. Run it with the keys you want to test:
 //   GROQ_API_KEY=... REQUESTY_API_KEY=... LLMAPI_API_KEY=... node scripts/live-check.mjs
 // It makes one tiny request per key (a few tokens), so the cost is a fraction of a cent.
-import { createLodestone, groq, requesty, llmapi, cerebras, explain } from '../dist/index.js';
+import { createLodestone, groq, requesty, llmapi, cerebras, omniakey, explain } from '../dist/index.js';
 
 const checks = [
   ['groq()', process.env.GROQ_API_KEY, groq, ['openai/gpt-oss-20b'], 'https://api.groq.com/openai/v1'],
   ['requesty()', process.env.REQUESTY_API_KEY, requesty, ['bedrock/claude-haiku-5-5'], 'https://router.requesty.ai/v1'],
   ['llmapi()', process.env.LLMAPI_API_KEY, llmapi, ['gemini-3.8-flash'], 'https://api.llmapi.ai/v1'],
   ['cerebras()', process.env.CEREBRAS_API_KEY, cerebras, ['llama-3.3-70b'], 'https://api.cerebras.ai/v1'],
+  // OmniaKey's own docs example uses gpt-5.5; set OMNIAKEY_MODEL to a model your account can use.
+  ['omniakey()', process.env.OMNIAKEY_API_KEY, omniakey, [process.env.OMNIAKEY_MODEL || 'gpt-5.5'], 'https://api.omniakey.com/v1'],
 ];
 const rows = [];
 for (const [name, key, preset, models, baseUrl] of checks) {
