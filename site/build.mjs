@@ -251,7 +251,7 @@ const extras = [
 <div class="plat"><h2>Render</h2><span class="chip info">Runtime tested</span><p>A Render web service is a Node server, covered by the Node checks. Not deployed on Render yet. A server has no function time limit, but the time budget still protects the person who is waiting.</p><p class="store">Shared state: <code>upstashStore</code>, or memory on a single instance</p></div>
 </div>
 <h2>Runtimes checked on every change</h2>
-<div class="runtimes-row"><span>Node 20</span><span>Node 22</span><span>Node 24</span><span>Cloudflare workerd</span><span>Deno</span><span>Bun</span><span>Python 3.10, 3.12, 3.13 (alpha port, tested only against fakes, not live providers)</span></div>
+<div class="runtimes-row"><span>Node 20</span><span>Node 22</span><span>Node 24</span><span>Cloudflare workerd</span><span>Deno</span><span>Bun</span><span>Python 3.10, 3.12, 3.13 (alpha port: one live call, to Groq; everything else tested against fakes)</span></div>
 <p class="cap">"Runtime tested" is a claim about the runtime, not the platform: a platform can add limits of its own, such as a smaller time limit or no writable disk. It moves to "In production" only when something real is deployed there.</p>
 <p class="cap">Deployed it somewhere not listed, or on one of these? <a href="https://github.com/obasaolorunfemi-ai/lodestone/issues/new">Tell us in an issue</a>. More detail: <a href="/docs/runtimes/">Runtimes</a>, <a href="/docs/stores/">Stores</a>, <a href="/docs/python/">the Python port</a>.</p>` },
 ];
