@@ -355,7 +355,7 @@ a.card:hover { border-color: var(--ink-3); transform: translateY(-2px); }
 .doc .tablewrap table { min-width: 560px; }
 .doc th, .doc td { text-align: left; vertical-align: top; padding: 10px 14px; border-bottom: 1px solid var(--rule-soft); }
 .doc .crumbs { font-size: .9rem; }
-.doc-list { list-style: none; padding: 0; display: grid; gap: 12px; }
+.doc-list { list-style: none; padding: 0; display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 20rem), 1fr)); }
 .doc-list a { display: block; padding: 16px 18px; border: 1px solid var(--rule); border-radius: 16px; background: var(--surface); text-decoration: none; color: var(--ink); }
 .doc-list a:hover { border-color: var(--ink-3); }
 .doc-list b { font-family: var(--f-display); font-size: 1.15rem; }
@@ -494,3 +494,31 @@ a.card.go:hover h3 { color: var(--ox); }
 
 /* Logos in the scrolls */
 .marquee-track li .logo { width: 1.1em; height: 1.1em; flex: none; color: var(--ink); }
+
+/* Documentation pages: a sidebar with the docs and this page's contents beside the text, on a wide screen */
+.doc.docs { max-width: none; width: min(78rem, 100% - 2 * clamp(16px, 4vw, 64px)); grid-template-columns: 14rem minmax(0, 1fr); column-gap: clamp(32px, 5vw, 72px); align-items: start; }
+.docs-side { position: sticky; top: 84px; align-self: start; display: grid; gap: 26px; max-height: calc(100dvh - 104px); overflow-y: auto; padding-block-end: 12px; }
+.docs-side nav { display: grid; gap: 0; }
+.docs-side .tag { padding-bottom: 6px; }
+.docs-side a { display: block; padding: 7px 0; color: var(--ink-2); text-decoration: none; font-size: .92rem; line-height: 1.35; border-bottom: 1px solid var(--rule-soft); }
+.docs-side a:hover { color: var(--ox); }
+.docs-side a[aria-current="page"] { color: var(--ox); font-weight: 600; }
+.docs-body { display: grid; gap: 1rem; min-width: 0; max-width: 50rem; }
+.toc-m { display: none; }
+.doc pre.wrap { white-space: pre-wrap; overflow-wrap: anywhere; }
+@media (max-width: 1000px) {
+  .doc.docs { grid-template-columns: minmax(0, 1fr); row-gap: 8px; }
+  .docs-side { position: static; max-height: none; overflow: visible; padding: 0; }
+  .docs-side .docs-nav, .docs-side .toc-d { display: none; }
+  .toc-m { display: block; border: 1px solid var(--rule); border-radius: 14px; background: var(--surface); padding: 0 16px; }
+  .toc-m summary { min-height: 48px; display: flex; align-items: center; cursor: pointer; font-weight: 600; list-style: none; }
+  .toc-m summary::-webkit-details-marker { display: none; }
+  .toc-m summary::after { content: ""; width: 9px; height: 9px; margin-left: auto; border-right: 1.5px solid var(--ink-3); border-bottom: 1.5px solid var(--ink-3); transform: rotate(45deg); }
+  .toc-m[open] summary::after { transform: rotate(-135deg); }
+  .toc-m a { display: flex; align-items: center; min-height: 44px; color: var(--ink-2); text-decoration: none; border-top: 1px solid var(--rule-soft); }
+}
+@media (max-width: 560px) {
+  .doc pre { font-size: .8rem; padding: 14px 15px; }
+  .doc h1 { font-size: clamp(1.9rem, 1.5rem + 3vw, 2.4rem); }
+  .doc table { font-size: .86rem; }
+}

@@ -235,7 +235,7 @@ function md(src, fromFile) {
   for (let i = 0; i < lines.length;) {
     const l = lines[i];
     if (!l.trim()) { i++; continue; }
-    if (l.startsWith('```')) { const code = []; i++; while (i < lines.length && !lines[i].startsWith('```')) code.push(lines[i++]); i++; out.push(`<pre><code>${esc(code.join('\n'))}</code></pre>`); continue; }
+    if (l.startsWith('```')) { const code = []; i++; while (i < lines.length && !lines[i].startsWith('```')) code.push(lines[i++]); i++; out.push(`<pre${code.length <= 3 ? ' class="wrap"' : ''}><code>${esc(code.join('\n'))}</code></pre>`); continue; }
     const h = /^(#{1,4}) (.*)$/.exec(l);
     if (h) { const n = h[1].length; out.push(`<h${n} id="${slug(h[2])}">${inline(h[2])}</h${n}>`); i++; continue; }
     if (l.startsWith('|') && /^\|[\s:|-]+\|$/.test(lines[i + 1] ?? '')) {
@@ -261,7 +261,7 @@ function md(src, fromFile) {
 }
 
 const css1 = `<link rel="icon" href="/favicon.svg" type="image/svg+xml"><link rel="stylesheet" href="/fonts/fonts.css"><link rel="stylesheet" href="/style.css?v=${v}"><script src="/theme.js?v=${v}"></script><script src="/menu.js?v=${v}" defer></script>`;
-const page = ({ path, title, desc, body, crumbs = true, wide = false, scripts = '' }) => `<!doctype html>
+const page = ({ path, title, desc, body, crumbs = true, wide = false, scripts = '', side = '' }) => `<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>${esc(title)} · Lodestone</title>
 <meta name="description" content="${esc(desc)}">
@@ -271,8 +271,8 @@ const page = ({ path, title, desc, body, crumbs = true, wide = false, scripts = 
 ${css1}${scripts}</head>
 <body><a class="skip" href="#main">Skip to content</a>
 <header class="sitebar">${siteBar(path)}</header>
-<main id="main" class="doc${wide ? ' wide' : ''}">${crumbs ? '<p class="crumbs tag"><a href="/docs/">Docs</a></p>' : ''}
-${body}
+<main id="main" class="doc${wide ? ' wide' : ''}${side ? ' docs' : ''}">${side ? `<aside class="docs-side">${side}</aside><div class="docs-body">` : ''}${crumbs ? '<p class="crumbs tag"><a href="/docs/">Docs</a></p>' : ''}
+${body}${side ? '</div>' : ''}
 </main>
 ${footHtml(false)}
 </body></html>
@@ -285,12 +285,16 @@ for (const d of DOCS) {
   mkdirSync(dest, { recursive: true });
   let body = md(readFileSync(join(root, d.file), 'utf8'), d.file);
   if (!/^<h1/.test(body)) body = `<h1>${esc(d.title)}</h1>\n` + body;
-  writeFileSync(join(dest, 'index.html'), page({ path: d.path, title: d.title, desc: d.desc, body }));
+  const heads = [...body.matchAll(/<h2 id="([^"]+)">(.*?)<\/h2>/g)].map(([, id, t]) => [id, t.replace(/<[^>]+>/g, '')]);
+  const tocLinks = heads.map(([id, t]) => `<a href="#${id}">${t}</a>`).join('');
+  const docsNav = `<nav class="docs-nav" aria-label="Docs"><span class="tag">Docs</span><a href="/docs/">All docs</a>${DOCS.map((x) => `<a href="/${x.path}/"${x.path === d.path ? ' aria-current="page"' : ''}>${esc(x.title)}</a>`).join('')}</nav>`;
+  const side = docsNav + (heads.length ? `<nav class="toc-d" aria-label="On this page"><span class="tag">On this page</span>${tocLinks}</nav><details class="toc-m"><summary>On this page</summary>${tocLinks}</details>` : '');
+  writeFileSync(join(dest, 'index.html'), page({ path: d.path, title: d.title, desc: d.desc, body, side }));
   pages.push({ loc: `/${d.path}/`, lastmod: lastmod(d.file) });
 }
 mkdirSync(join(out, 'docs'), { recursive: true });
-writeFileSync(join(out, 'docs/index.html'), page({ path: 'docs', title: 'Docs', desc: 'Documentation for Lodestone: stores, protecting your budget, runtimes, the Python port, scorecards, security and the changelog.', crumbs: false,
-  body: `<h1>Docs</h1><p>Built from the markdown in the repository. The <a href="/">home page</a> is the walkthrough; these are the details.</p><ul class="doc-list">${DOCS.map((d) => `<li><a href="/${d.path}/"><b>${esc(d.title)}</b><span>${esc(d.desc)}</span></a></li>`).join('')}<li><a href="${GH}README.md"><b>README</b><span>The full reference for the TypeScript library, on GitHub.</span></a></li></ul>` }));
+writeFileSync(join(out, 'docs/index.html'), page({ path: 'docs', title: 'Docs', desc: 'Documentation for Lodestone: stores, protecting your budget, runtimes, the Python port, scorecards, security and the changelog.', crumbs: false, wide: true,
+  body: `<h1>Docs</h1><p class="lead">Built from the markdown in the repository. The <a href="/">home page</a> is the walkthrough; these are the details.</p><ul class="doc-list">${DOCS.map((d) => `<li><a href="/${d.path}/"><b>${esc(d.title)}</b><span>${esc(d.desc)}</span></a></li>`).join('')}<li><a href="${GH}README.md"><b>README</b><span>The full reference for the TypeScript library, on GitHub.</span></a></li></ul>` }));
 pages.splice(1, 0, { loc: '/docs/', lastmod: date });
 
 // 6b. Pages that used to be sections of the home page, and the platforms page.
