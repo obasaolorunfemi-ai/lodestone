@@ -522,3 +522,8 @@ a.card.go:hover h3 { color: var(--ox); }
   .doc h1 { font-size: clamp(1.9rem, 1.5rem + 3vw, 2.4rem); }
   .doc table { font-size: .86rem; }
 }
+
+/* The key under the provider scroll: small */
+.provider-strip .cap { font-size: .76rem; gap: 4px 16px; }
+.provider-strip .key { gap: 6px; }
+.provider-strip .dot { width: 9px; height: 9px; }
