@@ -4,15 +4,19 @@ on:
     branches: [main]
   pull_request:
 
+permissions:
+  contents: read
+
+# Third-party actions are pinned to a commit, not a tag a maintainer can move. Dependabot proposes updates (.github/dependabot.yml).
 jobs:
   test:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        node: [20, 22]
+        node: [20, 22, 24]
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: ${{ matrix.node }}
           cache: npm
@@ -23,3 +27,41 @@ jobs:
       - run: npm run build
       - name: Build the site
         run: node site/build.mjs
+      - name: Smoke checks on the built library
+        run: npm run smoke
+
+  # The same checks on the other runtimes the library says it runs on.
+  runtimes:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - name: Cloudflare Workers (workerd, no Node compatibility flag)
+        run: npm run smoke:workers
+      - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed # v2.0.5
+        with:
+          deno-version: v2.x
+      - name: Deno
+        run: deno run --allow-read scripts/smoke.mjs
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+      - name: Bun
+        run: bun scripts/smoke.mjs
+
+  python:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python: ['3.10', '3.12', '3.13']
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Tests
+        working-directory: python
+        run: python -m unittest discover -s tests -t . -v
