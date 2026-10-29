@@ -19,7 +19,9 @@ export async function smoke(lib) {
   });
 
   await check('cuts off a model that hangs (AbortSignal.timeout)', async () => {
-    const or = mock((req) => (req.model === 'free-a:free' ? new Promise((_, reject) => req.signal.addEventListener('abort', () => reject(Object.assign(new Error('aborted'), { name: 'TimeoutError' })))) : 'ok'));
+    // AbortSignal.timeout's own timer does not keep a process alive, so a hung request holds the loop open with a timer of its own, as a real socket would.
+    const hang = (req) => new Promise((_, reject) => { const hold = setTimeout(() => {}, 5000); req.signal.addEventListener('abort', () => { clearTimeout(hold); reject(Object.assign(new Error('aborted'), { name: 'TimeoutError' })); }); });
+    const or = mock((req) => (req.model === 'free-a:free' ? hang(req) : 'ok'));
     const started = Date.now();
     const r = await createLodestone({ openrouter: { apiKey: 'k', provider: or, models }, timing: quick }).complete({ prompt: 'hi' });
     assert(r.text === 'ok', 'no answer');
