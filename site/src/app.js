@@ -115,14 +115,6 @@ function run(id) {
 }
 run('badday');
 
-const errs = $('errs');
-DATA.errors.filter((e) => !e.hidden).forEach((e) => {
-  const b = el('button', 'err'); b.type = 'button'; b.setAttribute('aria-expanded', 'false');
-  b.append(el('code', '', e.kind), el('span', 'what', e.what), el('span', 'say', '“' + e.say + '”'));
-  b.addEventListener('click', () => b.setAttribute('aria-expanded', String(b.getAttribute('aria-expanded') !== 'true')));
-  errs.appendChild(b);
-});
-
 // Reveal on scroll: content is visible by default; the .js class (set in theme.js) only adds the starting state.
 const io = new IntersectionObserver((es) => es.forEach((e) => { if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); } }), { threshold: 0.08 });
 document.querySelectorAll('.rise').forEach((n) => io.observe(n));
