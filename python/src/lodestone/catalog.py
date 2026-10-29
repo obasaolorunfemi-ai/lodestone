@@ -76,7 +76,7 @@ def clean_saved(raw: Any) -> Optional[dict]:
 
 
 def _fetch_openrouter() -> Optional[list[dict]]:
-    with urllib.request.urlopen("https://openrouter.ai/api/v1/models", timeout=8) as r:  # noqa: S310 - fixed https URL
+    with urllib.request.urlopen(urllib.request.Request("https://openrouter.ai/api/v1/models", headers={"User-Agent": "lodestone-python/0.1 (+https://lodestone.extrafemi.com)"}), timeout=8) as r:  # noqa: S310 - fixed https URL
         data = json.loads(r.read()).get("data", [])
     models = [{"id": m["id"], "context_length": m.get("context_length"), "architecture": m.get("architecture"), "pricing": m.get("pricing"),
                **({"expiration_date": m["expiration_date"]} if m.get("expiration_date") else {})} for m in data if isinstance(m, dict) and isinstance(m.get("id"), str)]

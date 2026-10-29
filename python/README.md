@@ -69,6 +69,10 @@ Be clear-eyed about these before you choose it over the TypeScript library.
 
 Status 599 means the request itself failed before a provider answered. The commonest cause on a Mac is Python from python.org, which ships without trusted certificates, so every HTTPS request fails with `CERTIFICATE_VERIFY_FAILED`. Run `Install Certificates.command` from the Python folder in Applications (for example `/Applications/Python 3.14/`), or `pip install certifi`, then try again. `python scripts/live_check.py` prints what Python itself reports. The port never turns certificate checking off.
 
+## If a provider answers 403
+
+Some providers sit behind Cloudflare, which refuses Python's default User-Agent (`Python-urllib`) with a 403 before the request reaches the provider. Groq does: a live check on 28 October 2026 got 403 from Python and an answer from the Node library with the same key. The port now sends `lodestone-python/0.1` on every request. If you write your own provider, set a User-Agent of your own.
+
 ## Stores
 
 `MemoryStore` (default) and `UpstashStore` (Upstash Redis and Vercel KV over REST, standard library only; it counts atomically, so rate limits are exact across functions). A store is any object with `async get(key)` and `async set(key, value, ttl_ms=None)`; one that also has `async incr_by(key, by, ttl_ms)` can count atomically.
