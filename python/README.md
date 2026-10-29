@@ -1,0 +1,74 @@
+# Lodestone for Python
+
+Reliable AI calls on a shoestring budget. A Python port of [Lodestone](https://lodestone.extrafemi.com): it sits between your code and AI models, and when a model is withdrawn, slow, rate-limited or down it moves to the next one, stays inside your time limit, spends only what you allow, and, if everything fails, tells the person what went wrong in plain words.
+
+Zero dependencies (the standard library only), Python 3.10 or newer. **Alpha (0.1).** Read "What is not in the Python port yet" before you rely on it.
+
+```bash
+# not on PyPI yet; until it is, install from the repository
+pip install "git+https://github.com/obasaolorunfemi-ai/lodestone#subdirectory=python"
+```
+
+```python
+import asyncio
+from lodestone import (Lodestone, OpenRouterConfig, Fallback, Health, SpendLimit, RateLimiter, MemoryStore,
+                       LodestoneError, explain, groq)
+
+store = MemoryStore()  # use UpstashStore(url, token) to share state between serverless functions
+
+ai = Lodestone(
+    openrouter=OpenRouterConfig(api_key=OPENROUTER_KEY, allow_paid=True, paid_first=True, paid_models=["anthropic/claude-haiku-5.5"]),
+    fallbacks=[Fallback(groq(), GROQ_KEY, ["openai/gpt-oss-20b"], free=True)],
+    health=Health(store),                                   # skip a model that keeps failing, for every function
+    spend=SpendLimit(store, daily_usd=2, monthly_usd=30),   # holds, so a burst cannot overshoot
+    rate_limit=RateLimiter(store, max=20, window_ms=3_600_000),
+    when_over="free-only",                                  # an over-limit caller never costs you anything
+    store=store,
+)
+
+async def handler(text: str, user_id: str) -> str:
+    try:
+        r = await ai.json(f"Summarise as JSON {{title, points}}:\n\n{text}", caller=user_id, private=True,
+                          validate=lambda v: isinstance(v, dict) and "title" in v)
+        return r.data["title"]
+    except LodestoneError as err:
+        return explain(err, product="MyApp")        # a sentence a person can read
+
+print(asyncio.run(handler("...", "user-1")))
+```
+
+For a script, `ai.complete_sync("hello")` runs a call to the end.
+
+## What it does
+
+Everything in the TypeScript library's [README](../README.md) about these, with the same defaults:
+
+- Free models first, then a low-cost paid model, then your `fallbacks`, inside a 24 s budget (`budget_ms`) with a slice for each attempt.
+- A model list that checks itself against OpenRouter's catalogue: a withdrawn model is dropped and a current one takes its place.
+- `json()` skips a model whose answer is not valid JSON or fails your `validate`.
+- Typed failures (`LodestoneError.kind`) and `explain()`, with the same sentences.
+- A circuit breaker (`Health`) shared through a store.
+- `SpendLimit`: a daily and monthly limit that takes a hold per paid attempt.
+- `RateLimiter` and `caller=`: each caller has their own allowance. Only a hash of the caller is stored.
+- `private=True`: OpenRouter is told to use only providers that do not keep or train on the prompt; a fallback is used only if you vouch for it with `privacy="no-training"`; the answer is never cached.
+- `cache_key=`: tied to a fingerprint of the input, so a key that is too coarse is a miss, never another input's answer.
+
+## What is not in the Python port yet
+
+Be clear-eyed about these before you choose it over the TypeScript library.
+
+- **Provider model lists** other than OpenRouter's. Requesty's price, lab and data-policy fields, and `discover` (topping up a fallback's list), are TypeScript-only. For a `private` call that means a fallback is used only if you vouch for it.
+- **Images / vision**, **streaming**, **tool calling**, **scorecards**.
+- **True cancellation of a hung request.** A call that hangs is cut off at its slice and the next model is tried, but the thread making the request is only ended by its socket timeout (the slice plus a second), not killed.
+- It has been tested against a local HTTP server and fake providers, not yet against live providers.
+
+## Stores
+
+`MemoryStore` (default) and `UpstashStore` (Upstash Redis and Vercel KV over REST, standard library only; it counts atomically, so rate limits are exact across functions). A store is any object with `async get(key)` and `async set(key, value, ttl_ms=None)`; one that also has `async incr_by(key, by, ttl_ms)` can count atomically.
+
+## Develop
+
+```bash
+cd python
+python -m unittest discover -s tests -t .
+```

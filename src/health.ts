@@ -1,4 +1,5 @@
 import type { KeyValueStore } from './types.js';
+import { isRecord } from './util.js';
 
 /** A circuit breaker: remembers which models have been failing, so a request does not spend its
  *  time on a model that is down. A model whose last few attempts all failed is skipped; every
@@ -47,6 +48,19 @@ type State = Record<string, Sample[]>;
 const KEEP = 6;
 const SHARE_MS = 15_000;
 const id = (provider: string, model: string) => `${provider}\u0000${model}`;
+const MAX_MODELS = 400;
+
+/** What a store returned, checked: only well-formed samples for a bounded number of models are kept, so a store somebody else can write to cannot make the breaker hide every model or grow without limit. */
+function clean(raw: unknown): State {
+  const out: State = {};
+  if (!isRecord(raw)) return out;
+  for (const [k, list] of Object.entries(raw).slice(0, MAX_MODELS)) {
+    if (k.length > 300 || !Array.isArray(list)) continue;
+    const ok = list.filter((s): s is Sample => Array.isArray(s) && s.length === 3 && Number.isFinite(s[0]) && (s[1] === 0 || s[1] === 1) && typeof s[2] === 'string' && s[2].length <= 16).slice(-KEEP);
+    if (ok.length) out[k] = ok;
+  }
+  return out;
+}
 
 export function createHealth(opts: HealthOptions = {}): Health {
   const need = opts.failures ?? 3;
@@ -61,7 +75,7 @@ export function createHealth(opts: HealthOptions = {}): Health {
   async function refresh(): Promise<void> {
     if (!opts.store || now() - loadedAt < SHARE_MS) return;
     loadedAt = now();
-    try { state = merge(state, ((await opts.store.get(key)) as State | null) ?? {}); } catch { /* an unreadable store is the same as an empty one */ }
+    try { state = merge(state, clean(await opts.store.get(key))); } catch { /* an unreadable store is the same as an empty one */ }
   }
   const merge = (a: State, b: State): State => {
     const out: State = {};
@@ -92,9 +106,9 @@ export function createHealth(opts: HealthOptions = {}): Health {
       // a model that is simply working costs nothing extra.
       if (!opts.store || (ok && !recovering)) return;
       try {
-        const theirs = ((await opts.store.get(key)) as State | null) ?? {};
+        const theirs = clean(await opts.store.get(key));
         state = merge(state, theirs);
-        await opts.store.set(key, state);
+        await opts.store.set(key, state, { ttlMs: windowMs * 3 });
         loadedAt = now();
       } catch { /* not saved: the next instance just has to learn it again */ }
     },

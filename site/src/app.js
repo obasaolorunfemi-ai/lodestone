@@ -181,21 +181,22 @@ window.addEventListener('beforeprint', () => document.querySelectorAll('.rise').
   });
 })();
 
-// Free model weather: one read of KeyStone's public summary. If it cannot be read, the page says so and nothing else changes.
+// Free model weather: one read of KeyStone's public summary. The section stays hidden until there is something to show:
+// a live panel with nothing in it is worse than no panel.
 (() => {
   const rows = $('weather-rows');
   const row = (cells) => { const tr = el('tr'); cells.forEach(([text, cls]) => tr.appendChild(el('td', cls, text))); return tr; };
-  const say = (text) => { rows.textContent = ''; const tr = el('tr'); const td = el('td', '', text); td.colSpan = 6; tr.appendChild(td); rows.appendChild(tr); };
   fetch('https://keystone.extrafemi.com/api/ai-weather', { headers: { Accept: 'application/json' } })
     .then((r) => { if (!r.ok) throw new Error(String(r.status)); return r.json(); })
     .then((w) => {
-      if (!Array.isArray(w.models) || !w.models.length) { say('No model has had five attempts yet. Counting started on 28 October 2026, so this fills as KeyStone is used.'); return; }
-      rows.textContent = '';
+      if (!Array.isArray(w.models) || !w.models.length) return;
       w.models.forEach((m) => rows.appendChild(row([
         [m.model], [m.provider], [String(m.tries), 'num2'], [m.successRate + '%', 'num2'], [String(m.timedOut), 'num2'],
         [m.medianMs == null ? 'none answered' : (m.medianMs / 1000).toFixed(1) + ' s', 'num2'],
       ])));
       $('weather-note').append(' Updated ' + new Date(w.generatedAt).toISOString().slice(0, 16).replace('T', ' ') + ' UTC, from ' + w.daysWithData + ' of the last ' + w.days + ' days.');
+      $('weather').hidden = false;
+      $('nav-weather').hidden = false;
     })
-    .catch(() => say('The counts could not be read just now. They are at keystone.extrafemi.com/api/ai-weather.'));
+    .catch(() => { /* not readable just now: the section stays hidden */ });
 })();
