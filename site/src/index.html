@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Lodestone: reliable AI calls on a shoestring budget</title>
-<meta name="description" content="Reliable AI calls for tools on a shoestring budget, running serverless. A small TypeScript library that keeps calls to free and low-cost models working inside a time limit: failover across providers, spend limits, plain-language errors. No dependencies. MIT.">
+<meta name="description" content="Reliable AI calls for tools on a shoestring budget, running serverless. A small library (TypeScript, with a Python port) that keeps calls to free and low-cost models working inside a time limit: failover across providers, spend limits, per-user limits, plain-language errors. No dependencies. MIT.">
 <meta name="theme-color" content="#fdfcf9" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#12110e" media="(prefers-color-scheme: dark)">
 <link rel="canonical" href="https://lodestone.extrafemi.com/">
@@ -12,7 +12,7 @@
 <meta property="og:url" content="https://lodestone.extrafemi.com/">
 <meta property="og:site_name" content="Lodestone">
 <meta property="og:title" content="Lodestone: reliable AI calls on a shoestring budget">
-<meta property="og:description" content="Reliable AI calls for tools on a shoestring budget, running serverless. Failover across providers, spend limits and plain-language errors, in a small TypeScript library with no dependencies.">
+<meta property="og:description" content="Reliable AI calls for tools on a shoestring budget, running serverless. Failover across providers, spend limits and plain-language errors, in a small library with no dependencies.">
 <meta name="twitter:card" content="summary">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="preload" href="/fonts/cardo-400-latin.woff2" as="font" type="font/woff2" crossorigin>
@@ -21,6 +21,7 @@
 <link rel="stylesheet" href="/style.css?v={{v}}">
 <script src="/theme.js?v={{v}}"></script>
 <script type="application/json" id="data">{{data}}</script>
+<script src="/menu.js?v={{v}}" defer></script>
 <script src="/app.js?v={{v}}" defer></script>
 </head>
 <body>
@@ -31,11 +32,16 @@
 <header class="sitebar">
   <div class="col sitebar-in">
     <a class="brand" href="/">Lodestone</a>
-    <nav class="sections" aria-label="Sections">
-      <a href="#for">Who for</a><a href="#problem">Problem</a><a href="#watch">Watch a call</a><a href="#measured">Measured</a><a href="#weather">Weather</a><a href="#providers">Providers</a><a href="#safety">Safety</a><a href="#failures">Failures</a><a href="#scorecards">Scorecards</a><a href="#using">Using it</a><a href="#limits">Limits</a><a href="#code">Code</a>
+    <nav class="sections" id="sections" aria-label="Sections">
+      <a href="#for">Who for</a><a href="#problem">Problem</a><a href="#watch">Watch a call</a><a href="#measured">Measured</a><a href="#weather" id="nav-weather" hidden>Weather</a><a href="#providers">Providers</a><a href="#safety">Safety</a><a href="#failures">Failures</a><a href="#scorecards">Scorecards</a><a href="#using">Using it</a><a href="#limits">Limits</a><a href="#code">Code</a>
+      <a class="menu-only" href="/docs/">Docs</a><a class="menu-only" href="/security/">Security</a><a class="menu-only" href="/changelog/">Changelog</a><a class="menu-only" href="https://github.com/obasaolorunfemi-ai/lodestone">GitHub</a><a class="menu-only" href="https://www.npmjs.com/package/@extrafemi-ai/lodestone">npm</a>
     </nav>
     <button type="button" class="icon-btn" id="theme" aria-label="Switch to dark mode">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+    </button>
+    <button type="button" class="icon-btn menu-btn" id="menu" aria-expanded="false" aria-controls="sections" aria-label="Open menu">
+      <svg class="i-open" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+      <svg class="i-close" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
     </button>
   </div>
   <div class="progress" aria-hidden="true"><span id="progress"></span></div>
@@ -47,7 +53,7 @@
     <div class="cover-main">
       <h1>Lodestone</h1>
       <p class="tagline">Reliable AI calls for tools on a shoestring budget, running serverless.</p>
-      <p class="lede">A small TypeScript library that sits between your tool and AI models. When a model is withdrawn, slow, rate-limited or down, it moves to the next one, stays inside your time limit, spends only what you allow, and, if everything fails, tells the person what went wrong in plain words.</p>
+      <p class="lede">A small library (TypeScript, with an alpha Python port) that sits between your tool and AI models. When a model is withdrawn, slow, rate-limited or down, it moves to the next one, stays inside your time limit, spends only what you allow, and, if everything fails, tells the person what went wrong in plain words.</p>
       <code class="install">npm install @extrafemi-ai/lodestone</code>
       <div class="actions">
         <a class="pill solid" href="#watch">Watch a bad day
@@ -55,7 +61,7 @@
         <a class="pill" href="https://github.com/obasaolorunfemi-ai/lodestone">GitHub</a>
         <a class="pill" href="https://www.npmjs.com/package/@extrafemi-ai/lodestone">npm</a>
       </div>
-      <p class="tag facts"><span>v{{version}}</span><span>TypeScript</span><span>No dependencies</span><span>MIT</span><span>Node 20 and 22</span></p>
+      <p class="tag facts"><span>v{{version}}</span><span>TypeScript</span><span>Python (alpha)</span><span>No dependencies</span><span>MIT</span><span>Node · Workers · Deno · Bun</span></p>
     </div>
     <figure class="ghost" aria-hidden="true">
       <svg viewBox="-34 0 368 300">
@@ -69,7 +75,7 @@
   <nav class="index" aria-label="Chapters">
     <a href="#problem"><h3>Six ways a cheap AI call breaks</h3><p>And what Lodestone does about each.</p><div class="foot"><b>6</b><span class="tag">failure modes</span></div></a>
     <a href="#watch"><h3>Pick a bad day</h3><p>Run a call through the real rules and watch it recover.</p><div class="foot"><b>12</b><span class="tag">scenarios</span></div></a>
-    <a href="#measured"><h3>What one bad day looked like</h3><p>Measured on 28 October 2026, with the mistakes left in.</p><div class="foot"><b>1 in 15</b><span class="tag">free answers usable</span></div></a>
+    <a href="#measured"><h3>What one bad day looked like</h3><p>Measured on 28 October 2026, with the mistakes left in.</p><div class="foot"><b>1 in 15</b><span class="tag">free answers usable, one day</span></div></a>
     <a href="#using"><h3>What a tool writes</h3><p>One setup, then each call names a task, not a model.</p><div class="foot"><b>0</b><span class="tag">dependencies</span></div></a>
   </nav>
 </div>
@@ -124,7 +130,7 @@
       <div class="cfg" id="scfg"></div>
       <div class="lane"><div class="lab"></div><div class="track scale" id="scale"></div></div>
       <div class="lanes" id="lanes"></div>
-      <div class="legend"><span><i style="background:var(--good)"></i>answered</span><span><i style="background:var(--warn-wash);border:1px solid var(--warn)"></i>too slow, cut off</span><span><i style="background:var(--bad-wash);border:1px solid var(--bad)"></i>refused or errored</span><span><i style="background:var(--info-wash);border:1px solid var(--info)"></i>answer failed the check</span></div>
+      <div class="legend"><span><i class="k-good"></i>answered</span><span><i class="k-warn"></i>too slow, cut off</span><span><i class="k-bad"></i>refused or errored</span><span><i class="k-info"></i>answer failed the check</span></div>
       <div class="log" id="log" aria-live="polite"></div>
       <div class="result" id="result" role="status"></div>
       <div class="replay-row"><button type="button" class="replay" id="replay">↻ Replay</button></div>
@@ -155,15 +161,15 @@
   <p class="cap">So reasoning is set per model (<code>openrouter({ reasoning })</code>), a paid-first mode exists (<code>paidFirst</code>), and the free models become the backup. The result for that tool: reading a posting in 2.6–3.1 s and scoring in 4.5–4.9 s, instead of failing after 24 s.</p>
 </section>
 
-<section id="weather" aria-labelledby="weather-h">
+<section id="weather" aria-labelledby="weather-h" hidden>
   <div class="divider"><span class="tag">Free model weather</span><span class="tag">Live · last 7 days</span></div>
   <div class="head">
     <h2 id="weather-h">How the models behind KeyStone are doing this week</h2>
-    <p>Every model KeyStone's shared key tries is counted: how many attempts, how many answered, how many timed out, and how long the answers took. Counts and times only: no prompt, answer or account is kept. This page reads them live from <a href="https://keystone.extrafemi.com/api/ai-weather">keystone.extrafemi.com/api/ai-weather</a>.</p>
+    <p>Every model KeyStone's shared key tries is counted: how many attempts, how many answered, how many timed out, and how long the answers took. Counts and times only: no prompt, answer or account is kept. This section appears only once there are counts to show, and reads them live from <a href="https://keystone.extrafemi.com/api/ai-weather">keystone.extrafemi.com/api/ai-weather</a>.</p>
   </div>
   <div class="tablewrap"><table id="weather-table" aria-live="polite">
     <thead><tr><th>Model</th><th>Provider</th><th class="num2">Attempts</th><th class="num2">Answered</th><th class="num2">Timed out</th><th class="num2">Median answer</th></tr></thead>
-    <tbody id="weather-rows"><tr><td colspan="6">Loading the latest counts…</td></tr></tbody>
+    <tbody id="weather-rows"></tbody>
   </table></div>
   <p class="cap" id="weather-note">One app's traffic on one key, so it describes KeyStone's week, not every tool's. Counts are approximate: two requests finishing together can lose one. A model is tried because the ones before it failed, so a low rate here is not a ranking of the models. Models with fewer than five attempts are left out.</p>
 </section>
@@ -200,13 +206,13 @@
     <tbody>{{vet}}</tbody>
   </table></div>
   <p class="cap">Verdicts are computed by the library's own <code>vet()</code> as this page is built, on rows shaped like real lists. On 28 Oct 2026, of Requesty's 807 chat models, 205 came from a lab not on the default list and 9 were marked as trained on. LLM API publishes nothing about what happens to prompts, so under a strict policy none of its models can be <em>discovered</em>; models you name yourself still work.</p>
-  <p class="note"><b>What this is not.</b> There is no vulnerability database for hosted AI models, so Lodestone does not claim to scan one. It checks what providers actually publish, and enforces your rules on it. Those facts are self-reported by providers. <a href="https://github.com/obasaolorunfemi-ai/lodestone/blob/main/SECURITY.md">SECURITY.md</a> lists exactly what is and is not checked.</p>
+  <p class="note"><b>What this is not.</b> There is no vulnerability database for hosted AI models, so Lodestone does not claim to scan one. It checks what providers actually publish, and enforces your rules on it. Those facts are self-reported by providers. <a href="/security/">The security page</a> lists exactly what is and is not checked.</p>
 </section>
 
 <section id="failures" aria-labelledby="failures-h">
-  <div class="divider"><span class="tag">When everything fails</span><span class="tag">11 kinds</span></div>
+  <div class="divider"><span class="tag">When everything fails</span><span class="tag">{{kinds}} kinds</span></div>
   <div class="head">
-    <h2 id="failures-h">Eleven kinds of failure, each with its own advice</h2>
+    <h2 id="failures-h">{{Kinds}} kinds of failure, each with its own advice</h2>
     <p><code>complete()</code> and <code>json()</code> throw a <code>LodestoneError</code> with one of these <code>kind</code> values. Tap one to read the sentence <code>explain(err, { product: 'MyApp', settingsHint: 'in Settings' })</code> gives a person.</p>
   </div>
   <div class="errs" id="errs"></div>
@@ -257,7 +263,9 @@ const ai = createLodestone({
       models: ['llama-3.3-70b-versatile'], free: true },
   ],
   store, health: createHealth({ store }),
-  spend: { allow: underDailyLimit, record: addToLedger },
+  spend: createSpendLimit({ store, dailyUsd: 2 }),
+  rateLimit: { limiter: createRateLimiter({ store, max: 20 }),
+               whenOver: 'free-only' },
   trust: { requireNoTraining: true },
 });
 
@@ -265,17 +273,23 @@ const ai = createLodestone({
 try {
   const { data } = await ai.json({
     prompt, validate: isJob, signal: req.signal,
-    private: true });   <span class="c">// a CV: do not keep or train on it</span>
+    caller: userId, private: true });   <span class="c">// a CV: do not keep or train on it</span>
 } catch (err) {
   return explain(err, { product: 'MyApp' });
 }</pre>
     <ol class="steps">
       <li><b>Tiers, not model ids.</b> A task maps to <code>fast</code>, <code>strong</code> or <code>vision</code> (picked automatically when a message has an image). Or pass a fixed <code>route</code> to name provider, model and key yourself.</li>
       <li><b>Customer keys stay separate.</b> A caller's own key replaces yours and unlocks the paid model, but your fallback providers and your spend ledger are never touched by that call.</li>
+      <li><b>One person cannot empty the budget.</b> Name the <code>caller</code> and each one gets their own allowance (stored as a hash). Over it, they are refused or served from free models only. The spend limit takes a hold per attempt, so a burst cannot overshoot it. <a href="/docs/protecting-your-budget/">How, and what is approximate</a>.</li>
       <li><b>Daily upkeep.</b> <code>checkModels()</code> refreshes every provider's catalogue and reports what has gone or is retiring. <code>cacheKey</code> and <code>peek()</code> reuse answers for repeatable tasks.</li>
       <li><b>Cancelling.</b> Pass a <code>signal</code>; when the person leaves, the call and every model after it stop.</li>
-      <li><b>Private by design.</b> <code>onAttempt</code> reports provider, model, outcome and timing only. Prompts and answers are never logged.</li>
+      <li><b>Private by design.</b> <code>onAttempt</code> reports provider, model, outcome and timing only. Prompts and answers are never logged, and a <code>private</code> call is never cached.</li>
     </ol>
+    <div class="three">
+      <a class="card" href="/docs/stores/"><span class="tag">Shared state</span><h3>Stores for where you deploy</h3><p>Netlify Blobs, Cloudflare KV, Upstash (and Vercel KV) and Deno KV adapters, so the circuit breaker and rate limits are shared between functions.</p></a>
+      <a class="card" href="/docs/runtimes/"><span class="tag">Checked, not assumed</span><h3>Node, Workers, Deno, Bun</h3><p>The same smoke checks run on all four in CI, Workers without the Node compatibility flag.</p></a>
+      <a class="card" href="/docs/python/"><span class="tag">Alpha</span><h3>A Python port</h3><p>Failover, time budget, breaker, spend holds, per-caller limits and <code>explain()</code>, with the standard library only. What it lacks is listed.</p></a>
+    </div>
   </div>
 </section>
 
@@ -288,7 +302,7 @@ try {
   <div class="three rise">
     <div class="card"><h3>Streaming</h3><p><code>complete()</code> and <code>json()</code> wait for the whole answer. Streaming needs a rule for a model that fails halfway; the likely one is to fail over only before the first token.</p></div>
     <div class="card"><h3>Tool calling, embeddings, speech</h3><p>Lodestone is for one-shot text and JSON calls today. It does not let a model call functions, and it has no tier for embeddings or speech.</p></div>
-    <div class="card"><h3>Other runtimes</h3><p>It uses only <code>fetch</code>, <code>AbortSignal</code> and <code>URL</code>, with no Node-specific APIs, so it should run on Workers, Deno and edge runtimes. It has only been tested on Node 20 and 22.</p></div>
+    <div class="card"><h3>The Python port is alpha</h3><p>It has no provider model lists beyond OpenRouter's, no images, and a hung request is cut off at its slice but only ends with its socket timeout. It is tested against a local server and fakes, not yet live providers.</p></div>
   </div>
 </section>
 
@@ -322,7 +336,7 @@ try {
   <div class="col foot-cols">
     <div>
       <div class="mark">Lodestone</div>
-      <p>A small TypeScript library that keeps AI calls working when a model is withdrawn, slow, rate-limited or down.</p>
+      <p>A small library that keeps AI calls working when a model is withdrawn, slow, rate-limited or down.</p>
     </div>
     <nav aria-label="This page">
       <h3>This page</h3>
@@ -339,14 +353,15 @@ try {
       <ul>
         <li><a href="https://github.com/obasaolorunfemi-ai/lodestone">GitHub</a></li>
         <li><a href="https://www.npmjs.com/package/@extrafemi-ai/lodestone">npm</a></li>
-        <li><a href="https://github.com/obasaolorunfemi-ai/lodestone/blob/main/CHANGELOG.md">Changelog</a></li>
-        <li><a href="https://github.com/obasaolorunfemi-ai/lodestone/blob/main/SECURITY.md">Security</a></li>
+        <li><a href="/changelog/">Changelog</a></li>
+        <li><a href="/security/">Security</a></li>
       </ul>
     </nav>
     <nav aria-label="More">
       <h3>More</h3>
       <ul>
-        <li><a href="https://github.com/obasaolorunfemi-ai/lodestone/blob/main/docs/scorecards.md">Scorecards in full</a></li>
+        <li><a href="/docs/">Docs</a></li>
+        <li><a href="/docs/scorecards/">Scorecards in full</a></li>
         <li><a href="https://naija-eval.extrafemi.com/">Naija Eval</a></li>
         <li><a href="https://keystone.extrafemi.com/">KeyStone</a></li>
       </ul>
