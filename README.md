@@ -4,11 +4,11 @@
 
 Calls AI models so your tool keeps working when a model is withdrawn, slow or rate-limited.
 
-Free and cheap models come and go. A hard-coded model id breaks without warning, one slow model can use your whole time limit, and "429" can mean four different things that need four different messages. Lodestone handles those so each tool doesn't have to.
+Free models come and go. A hard-coded model id breaks without warning, one slow model can use your whole time limit, and "429" can mean four different things that need four different messages. Lodestone handles those so each tool doesn't have to.
 
 - **Replaces withdrawn models by itself.** Your lists are preferences. They are checked against OpenRouter's live catalogue, and any model that has gone is swapped for a current one of the same kind.
 - **Keeps inside a time budget.** Each model gets a slice of it. A slow or failing model is skipped for the next, so a function never hits its gateway limit with an unreadable error.
-- **Falls back across providers.** OpenRouter's free models, then a low-cost paid model, then Anthropic or Google on their own keys.
+- **Falls back across providers.** OpenRouter's free models, then a paid model, then Anthropic or Google on their own keys.
 - **Explains failures in plain words.** A daily limit, a per-minute limit, a busy upstream provider, a bad key and a slow model are different errors with different advice.
 - **Checks the answer.** `json()` skips a model whose answer isn't valid JSON, or doesn't pass your validator.
 - **Bring your own key.** A caller's key replaces the platform's and allows the paid fallback, without touching the platform's budget.
@@ -78,7 +78,7 @@ Pass the customer's OpenRouter key as `apiKey` on a call. It replaces the platfo
 For each call, in order, until one answers:
 
 1. OpenRouter's free models for the tier (current ones, per the catalogue).
-2. A low-cost paid OpenRouter model, only if the caller supplied their own key or you set `allowPaid`. With no credit OpenRouter refuses it and nothing is spent.
+2. A paid OpenRouter model, only if the caller supplied their own key or you set `allowPaid`. With no credit OpenRouter refuses it and nothing is spent.
 3. Each `fallbacks` provider, with its own key.
 
 When a later phase exists, the free models get a short turn (9 s in all by default), so there is always time left for it. The whole call stays inside `budgetMs` (24 s by default, under a 30 s gateway limit).
@@ -98,7 +98,7 @@ const { ok, withdrawn, shortTiers } = await ai.checkModels();
 
 ### Free models that are not worth waiting for (`paidFirst`)
 
-Free models can be down for hours (rate-limited, or holding a connection open for 45 seconds and never answering). On the platform's own key, `openrouter: { paidFirst: true }` tries the low-cost paid model first and the free ones only if it fails or the spend limit is reached, so a request is not slowed by free models that are not going to answer. A caller's own key is not affected: the paid models are their money, so their free models still come first. Reasoning is set per model with `openrouter({ reasoning: (model) => ... })`, because models differ: one thinks for a thousand tokens unless told not to (measured: turning it off halved scoring time, 10 s to 5 s, with the same answers), another refuses to run with reasoning off.
+Free models can be down for hours (rate-limited, or holding a connection open for 45 seconds and never answering). On the platform's own key, `openrouter: { paidFirst: true }` tries the paid model first and the free ones only if it fails or the spend limit is reached, so a request is not slowed by free models that are not going to answer. A caller's own key is not affected: the paid models are their money, so their free models still come first. Reasoning is set per model with `openrouter({ reasoning: (model) => ... })`, because models differ: one thinks for a thousand tokens unless told not to (measured: turning it off halved scoring time, 10 s to 5 s, with the same answers), another refuses to run with reasoning off.
 
 ### Not waiting on a model that is down (circuit breaker)
 

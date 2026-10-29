@@ -3,16 +3,16 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Lodestone: reliable AI calls on a shoestring budget</title>
-<meta name="description" content="Reliable AI calls for tools on a shoestring budget, running serverless. A small library (TypeScript, with a Python port) that keeps calls to free and low-cost models working inside a time limit: failover across providers, spend limits, per-user limits, plain-language errors. No dependencies. MIT.">
+<title>Lodestone: reliable AI calls for serverless tools</title>
+<meta name="description" content="Reliable AI calls for tools, running serverless. A small library (TypeScript, with a Python port) that keeps calls to free and paid models working inside a time limit: failover across providers, spend limits, per-user limits, plain-language errors. No dependencies. MIT.">
 <meta name="theme-color" content="#fdfcf9" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#12110e" media="(prefers-color-scheme: dark)">
 <link rel="canonical" href="https://lodestone.extrafemi.com/">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://lodestone.extrafemi.com/">
 <meta property="og:site_name" content="Lodestone">
-<meta property="og:title" content="Lodestone: reliable AI calls on a shoestring budget">
-<meta property="og:description" content="Reliable AI calls for tools on a shoestring budget, running serverless. Failover across providers, spend limits and plain-language errors, in a small library with no dependencies.">
+<meta property="og:title" content="Lodestone: reliable AI calls for serverless tools">
+<meta property="og:description" content="Reliable AI calls for tools, running serverless. Failover across providers, spend limits and plain-language errors, in a small library with no dependencies.">
 <meta name="twitter:card" content="summary">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="preload" href="/fonts/cardo-400-latin.woff2" as="font" type="font/woff2" crossorigin>
@@ -39,7 +39,7 @@
   <div class="stage">
     <div class="cover-main">
       <h1>Lodestone</h1>
-      <p class="tagline">Reliable AI calls for tools on a shoestring budget, running serverless.</p>
+      <p class="tagline">Reliable AI calls for tools, running serverless.</p>
       <p class="lede">A small library (TypeScript, with an alpha Python port) that sits between your tool and AI models. When a model is withdrawn, slow, rate-limited or down, it moves to the next one, stays inside your time limit, spends only what you allow, and, if everything fails, tells the person what went wrong in plain words.</p>
       <code class="install">npm install @extrafemi-ai/lodestone</code>
       <div class="actions">
@@ -60,7 +60,7 @@
     </figure>
   </div>
   <nav class="index" aria-label="Chapters">
-    <a href="#problem"><h3>Six ways a cheap AI call breaks</h3><p>And what Lodestone does about each.</p><div class="foot"><b>6</b><span class="tag">failure modes</span></div></a>
+    <a href="#problem"><h3>Six ways an AI call breaks</h3><p>And what Lodestone does about each.</p><div class="foot"><b>6</b><span class="tag">failure modes</span></div></a>
     <a href="#watch"><h3>Pick a bad day</h3><p>Run a call through the real rules and watch it recover.</p><div class="foot"><b>12</b><span class="tag">scenarios</span></div></a>
     <a href="#measured"><h3>What one bad day looked like</h3><p>Measured on 28 October 2026, with the mistakes left in.</p><div class="foot"><b>1 in 15</b><span class="tag">free answers usable, one day</span></div></a>
     <a href="/using-it/"><h3>What a tool writes</h3><p>One setup, then each call names a task, not a model.</p><div class="foot"><b>0</b><span class="tag">dependencies</span></div></a>
@@ -78,7 +78,7 @@
     <p>Gateways market to platform teams. Lodestone is for indie builders, Global South startups and free public tools: people for whom a fraction of a cent per call matters and a 30 second limit is real.</p>
   </div>
   <div class="numbers rise">
-    <div class="callout"><span class="big num">$0.0004</span><p>What it cost to read a job posting on a low-cost paid model, measured on 28 October 2026. At that price the question is not whether you can afford a call, it is whether you can afford a call that fails and is paid for again.</p></div>
+    <div class="callout"><span class="big num">$0.0004</span><p>What it cost to read a job posting on a paid model, measured on 28 October 2026. At that price the question is not whether you can afford a call, it is whether you can afford a call that fails and is paid for again.</p></div>
     <div class="callout"><span class="big num">30 s</span><p>How long a serverless function has before its gateway cuts it off with an error page nobody can read. Lodestone plans inside 24 s, so one slow model cannot use up the whole time.</p></div>
   </div>
   <div class="three rise">
@@ -92,8 +92,8 @@
 <section id="problem" aria-labelledby="problem-h">
   <div class="divider"><span class="tag">The problem</span><span class="tag">6 ways a call breaks</span></div>
   <div class="head">
-    <h2 id="problem-h">Six ways a cheap AI call breaks</h2>
-    <p>Free and low-cost models come and go, and gateways have bad days. Every tool that calls them ends up rewriting the same defensive code. Lodestone does it once, for all your tools.</p>
+    <h2 id="problem-h">Six ways an AI call breaks</h2>
+    <p>Free models come and go, and gateways have bad days. Every tool that calls them ends up rewriting the same defensive code. Lodestone does it once, for all your tools.</p>
   </div>
   <ol class="ledger rise">
     <li><h3>The model disappears</h3><div class="what"><p>A hard-coded model id stops working without warning when the provider withdraws it.</p></div><p class="fix"><b>Fix</b>Your list is a preference, checked against the provider's live catalogue. Gone or retiring models are dropped and replaced.</p></li>
@@ -109,7 +109,7 @@
   <div class="divider"><span class="tag">Watch a call</span><span class="tag">12 scenarios · real rules</span></div>
   <div class="head">
     <h2 id="watch-h">Pick a bad day and see what Lodestone does</h2>
-    <p>A call runs through up to three phases until one answers: OpenRouter's free models, a low-cost paid model, then your fallback providers. These are the real rules; the timings and model names are illustrative, except where a scenario says it was measured.</p>
+    <p>A call runs through up to three phases until one answers: OpenRouter's free models, a paid model, then your fallback providers. These are the real rules; the timings and model names are illustrative, except where a scenario says it was measured.</p>
   </div>
   <div class="sim">
     <div class="picker">
