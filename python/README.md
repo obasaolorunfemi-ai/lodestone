@@ -65,6 +65,10 @@ Be clear-eyed about these before you choose it over the TypeScript library.
 - **Images, streaming, tool calling and scorecards.** None of these exist in the Python port.
 - **Real-provider testing.** The port has been tested against a local HTTP server and fake providers, not against live ones. That is the main reason it is alpha.
 
+## If every call fails with status 599
+
+Status 599 means the request itself failed before a provider answered. The commonest cause on a Mac is Python from python.org, which ships without trusted certificates, so every HTTPS request fails with `CERTIFICATE_VERIFY_FAILED`. Run `Install Certificates.command` from the Python folder in Applications (for example `/Applications/Python 3.14/`), or `pip install certifi`, then try again. `python scripts/live_check.py` prints what Python itself reports. The port never turns certificate checking off.
+
 ## Stores
 
 `MemoryStore` (default) and `UpstashStore` (Upstash Redis and Vercel KV over REST, standard library only; it counts atomically, so rate limits are exact across functions). A store is any object with `async get(key)` and `async set(key, value, ttl_ms=None)`; one that also has `async incr_by(key, by, ttl_ms)` can count atomically.
