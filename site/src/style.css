@@ -491,3 +491,6 @@ a.card.go:hover h3 { color: var(--ox); }
 .marquee-track li small { font: 500 .72rem/1 var(--f-body); letter-spacing: .14em; text-transform: uppercase; color: var(--ink-3); }
 .strip-2 { margin-top: 10px; }
 #model-track li { font-size: clamp(1.1rem, 1rem + .6vw, 1.5rem); }
+
+/* Logos in the scrolls */
+.marquee-track li .logo { width: 1.1em; height: 1.1em; flex: none; color: var(--ink); }
