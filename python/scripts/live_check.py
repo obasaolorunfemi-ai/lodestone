@@ -1,6 +1,6 @@
 """Calls a real provider once, through the Python port, and prints what happened. Keys come from the environment and are never printed.
 
-    GROQ_API_KEY=... OPENROUTER_API_KEY=... python scripts/live_check.py
+    GROQ_API_KEY=... REQUESTY_API_KEY=... OPENROUTER_API_KEY=... python scripts/live_check.py
 
 One tiny request per key (a few tokens), so the cost is a fraction of a cent. Run from the python/ folder after
 `pip install -e .`, or with PYTHONPATH=src."""
@@ -10,7 +10,7 @@ import time
 import urllib.error
 import urllib.request
 
-from lodestone import Fallback, Lodestone, LodestoneError, OpenRouterConfig, explain, groq
+from lodestone import Fallback, Lodestone, LodestoneError, OpenRouterConfig, explain, groq, requesty
 from lodestone.providers import USER_AGENT
 
 PROMPT = 'Reply with only this JSON: {"ok":true}'
@@ -50,6 +50,11 @@ async def main() -> None:
         rows.append(row)
     else:
         rows.append({"check": "groq", "result": "skipped: GROQ_API_KEY not set"})
+    if os.environ.get("REQUESTY_API_KEY"):
+        ai = Lodestone(fallbacks=[Fallback(requesty(), os.environ["REQUESTY_API_KEY"], ["bedrock/claude-haiku-5-5"])])
+        rows.append(await run("requesty (fallback only)", ai))
+    else:
+        rows.append({"check": "requesty", "result": "skipped: REQUESTY_API_KEY not set"})
     if os.environ.get("OPENROUTER_API_KEY"):
         ai = Lodestone(openrouter=OpenRouterConfig(api_key=os.environ["OPENROUTER_API_KEY"], allow_paid=True, paid_first=True, paid_models=["anthropic/claude-haiku-5.5"]))
         rows.append(await run("openrouter (paid first)", ai))

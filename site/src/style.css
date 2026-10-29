@@ -376,21 +376,23 @@ a.card:hover { border-color: var(--ink-3); transform: translateY(-2px); }
 .doc-list span { display: block; color: var(--ink-2); font-size: .93rem; }
 .site-foot.slim { padding-block: 24px 40px; }
 
-/* Menu button: shown only where the links no longer fit on one line (phones and tablets). */
-.menu-btn { display: none; }
+/* Menu: every site link lives behind the menu button, at every width. */
+.menu-btn { display: grid; }
 .menu-btn .i-close { display: none; }
 .menu-btn[aria-expanded="true"] .i-open { display: none; }
 .menu-btn[aria-expanded="true"] .i-close { display: block; }
-@media (max-width: 1100px) {
-  .brand { margin-right: auto; }
-  .menu-btn { display: grid; }
-  .sections { position: absolute; left: 0; right: 0; top: 100%; flex: none; flex-direction: column; gap: 0; overflow: visible; -webkit-mask-image: none; mask-image: none; padding: 6px clamp(16px, 4vw, 64px) 14px; background: var(--paper); border-bottom: 1px solid var(--rule); max-height: calc(100dvh - 64px); overflow-y: auto; }
-  .sections a:first-child { margin-left: 0; }
-  .sections a { min-height: 48px; padding: 0 4px; border-radius: 0; font-size: clamp(1rem, .95rem + .3vw, 1.12rem); border-bottom: 1px solid var(--rule-soft); }
-  .sections a:last-child { border-bottom: 0; }
-  .sections a:hover { background: transparent; color: var(--ox); }
-  .js .sections { display: none; }
-  .js .sections.open { display: flex; }
+.brand { margin-right: auto; }
+.sections { position: absolute; left: 0; right: 0; top: 100%; flex: none; flex-direction: column; gap: 0; overflow: visible; -webkit-mask-image: none; mask-image: none; padding: 6px clamp(16px, 4vw, 64px) 14px; background: var(--paper); border-bottom: 1px solid var(--rule); max-height: calc(100dvh - 64px); overflow-y: auto; }
+.sections a:first-child { margin-left: 0; }
+.sections a { min-height: 48px; padding: 0 4px; border-radius: 0; font-size: clamp(1rem, .95rem + .3vw, 1.12rem); border-bottom: 1px solid var(--rule-soft); }
+.sections a:last-child { border-bottom: 0; }
+.sections a:hover { background: transparent; color: var(--ox); }
+.js .sections { display: none; }
+.js .sections.open { display: flex; }
+@media (min-width: 1101px) {
+  /* On a wide screen the menu is a panel under the button, not a full-width sheet. */
+  .sitebar-in { position: relative; }
+  .sections { left: auto; right: 0; width: 20rem; top: calc(100% - 2px); padding: 6px 18px 10px; border: 1px solid var(--rule); border-radius: 18px; box-shadow: 0 16px 40px rgb(0 0 0 / .16); max-height: calc(100dvh - 90px); }
 }
 
 /* On this page: the sections of the home page, in a bar under the site links */
