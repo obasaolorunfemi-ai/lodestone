@@ -274,13 +274,6 @@ pre.snip .c { color: var(--code-dim); }
 
 /* footer */
 .site-foot { background: var(--panel); border-top: 1px solid var(--rule); margin-top: clamp(40px, 8vh, 96px); }
-.family { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; padding-top: clamp(32px, 5vh, 56px); }
-.fam { display: grid; gap: 6px; align-content: start; padding: 22px 24px; border: 1px solid var(--rule); border-radius: 20px; background: var(--surface); color: var(--ink); text-decoration: none; transition: border-color .2s; }
-.fam:hover { border-color: var(--ox); text-decoration: none; }
-.fam strong { font: 700 clamp(1.3rem, 1.15rem + .6vw, 1.7rem)/1.1 var(--f-display); }
-.fam span:not(.tag):not(.go) { color: var(--ink-2); max-width: 34em; }
-.fam .go { display: inline-flex; align-items: center; gap: 6px; color: var(--ox); font-weight: 600; margin-top: 4px; }
-.fam svg { width: 14px; height: 14px; }
 .foot-cols { display: grid; grid-template-columns: minmax(0, 1.6fr) repeat(3, minmax(0, 1fr)); gap: 32px clamp(20px, 3vw, 48px); padding-block: 40px; }
 .foot-cols .mark { font: 700 clamp(1.8rem, 1.5rem + 1vw, 2.3rem)/1 var(--f-display); letter-spacing: -0.02em; margin-bottom: 12px; }
 .foot-cols p { color: var(--ink-2); font-size: .95rem; max-width: 30em; }
@@ -436,3 +429,34 @@ a.card.go:hover h3 { color: var(--ox); }
 .plat-head { display: flex; align-items: center; gap: 12px; }
 .plat-head .logo { width: 28px; height: 28px; flex: none; color: var(--ink); }
 .logo-note { margin-top: .4rem; }
+
+/* Live status badges, drawn by Down in Nigeria */
+.status { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.6fr); gap: 20px clamp(20px, 4vw, 64px); align-items: center; padding-top: clamp(32px, 5vh, 56px); }
+.status-head { display: grid; gap: 8px; }
+.status-head h2 { font-size: clamp(1.4rem, 1.2rem + .8vw, 1.9rem); line-height: 1.1; }
+.status-head p { color: var(--ink-2); max-width: 30em; }
+.status-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.stat { display: grid; gap: 10px; align-content: start; padding: 16px 18px; border: 1px solid var(--rule); border-radius: 20px; background: var(--surface); color: var(--ink); text-decoration: none; min-height: 120px; transition: border-color .2s; }
+.stat:hover { border-color: var(--ox); text-decoration: none; }
+.stat .badges { display: grid; gap: 8px; justify-items: start; }
+.stat img, .badges-row img { display: block; max-width: 100%; height: auto; }
+.badges-row a { display: inline-block; text-decoration: none; }
+.b-dark { display: none !important; }
+:root[data-theme="dark"] .b-light { display: none !important; }
+:root[data-theme="dark"] .b-dark { display: block !important; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .b-light { display: none !important; }
+  :root:not([data-theme="light"]) .b-dark { display: block !important; }
+}
+@media (max-width: 860px) { .status { grid-template-columns: 1fr; } }
+@media (max-width: 560px) { .status-grid { grid-template-columns: 1fr; } }
+
+/* Runs on Lodestone */
+.fam-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(20rem, 1fr)); gap: 14px; margin-block: .4rem 1rem; }
+.fam-card { border: 1px solid var(--rule); border-radius: 20px; background: var(--surface); padding: 22px 24px; display: grid; gap: 8px; align-content: start; }
+.fam-card h2 { font: 700 clamp(1.5rem, 1.25rem + .8vw, 1.9rem)/1.1 var(--f-display); margin: 0; }
+.fam-card h2 a { color: var(--ink); text-decoration: none; }
+.fam-card h2 a:hover { color: var(--ox); }
+.fam-card .live-line { font-size: .9rem; color: var(--ink-3); border-top: 1px solid var(--rule); padding-top: 10px; }
+.fam-card .live-line[data-live="true"] { color: var(--good); }
+.fam-card .go { font-weight: 600; }

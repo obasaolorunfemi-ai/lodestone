@@ -1,0 +1,15 @@
+[
+  {
+    "name": "KeyStone",
+    "url": "https://keystone.extrafemi.com/",
+    "kind": "runs",
+    "description": "Jobs, grants and visa routes in one place. Its CV scoring and rewriting call AI models through Lodestone, on Netlify Functions.",
+    "weather": "https://keystone.extrafemi.com/api/ai-weather"
+  },
+  {
+    "name": "Naija Eval",
+    "url": "https://naija-eval.extrafemi.com/",
+    "kind": "feeds",
+    "description": "An independent, reproducible scorecard for N-ATLaS on Hausa, Igbo and Yoruba, and the first evaluator to publish model-scorecard/1."
+  }
+]
