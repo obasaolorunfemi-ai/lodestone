@@ -12,8 +12,9 @@ const root = join(here, '..');
 const out = join(here, 'public');
 const lib = await import(join(root, 'dist/index.js'));
 const pkg = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'));
+const RUNS_ON = JSON.parse(readFileSync(join(here, 'src/runs-on.json'), 'utf8'));
 const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-const NAV = [['/', 'Home'], ['/providers/', 'Providers'], ['/model-lists/', 'Model lists'], ['/when-everything-fails/', 'When everything fails'], ['/where-it-runs/', 'Where it runs'], ['/limits/', 'Honest limits'], ['/docs/', 'Docs'], ['/code-map/', 'Code map'], ['/changelog/', 'Changelog'], ['/security/', 'Security'], ['https://github.com/obasaolorunfemi-ai/lodestone', 'GitHub']];
+const NAV = [['/', 'Home'], ['/providers/', 'Providers'], ['/model-lists/', 'Model lists'], ['/when-everything-fails/', 'When everything fails'], ['/where-it-runs/', 'Where it runs'], ['/runs-on-lodestone/', 'Runs on Lodestone'], ['/limits/', 'Honest limits'], ['/docs/', 'Docs'], ['/code-map/', 'Code map'], ['/changelog/', 'Changelog'], ['/security/', 'Security'], ['https://github.com/obasaolorunfemi-ai/lodestone', 'GitHub']];
 /** The site links, the same on every page. Docs pages count as Docs, so the Docs link is marked while you read one. */
 const SECTIONS = [['for', 'Who for'], ['problem', 'Problem'], ['watch', 'Watch a call'], ['measured', 'Measured'], ['weather', 'Weather'], ['scorecards', 'Scorecards'], ['using', 'Using it']];
 /** The menu, the same on every page: the site's pages, then the sections of the home page. On the home page a section link is an in-page anchor; elsewhere it points at the home page. Weather is hidden until the home page finds counts to show. */
@@ -31,7 +32,12 @@ const MENU_BTN = '<button type="button" class="icon-btn menu-btn" id="menu" aria
 /** The top row of the site bar, the same on every page including the 404: brand, the menu with every site link, the light/dark switch and the menu button. */
 const siteBar = (path) => `<div class="col sitebar-in"><a class="brand" href="/">Lodestone</a><nav class="sections" id="sections" aria-label="Site">${navHtml(path)}</nav>${THEME_BTN}${MENU_BTN}</div>`;
 /** The slim footer, the same on every page except the home page, which has the full one. */
-const slimFoot = () => `<footer class="site-foot slim"><div class="col foot-base"><p>${NAV.map(([h, t]) => `<a href="${h}">${t}</a>`).join(' · ')}</p><p>Lodestone ${pkg.version} · MIT licence · © 2026 Extrafemi · No cookies, no tracking.</p></div></footer>`;
+/** Down in Nigeria's status badge for a service, in a light and a dark version; the theme shows one. */
+const DOWN = 'https://down.extrafemi.com';
+const badge = (slug, style, w, h, alt) => `<img class="b-light" src="${DOWN}/badge/${slug}.svg?style=${style}&amp;accent=6b1410&amp;bg=fffefb&amp;radius=16" width="${w}" height="${h}" alt="${alt}" loading="lazy" decoding="async"><img class="b-dark" src="${DOWN}/badge/${slug}.svg?style=${style}&amp;theme=dark" width="${w}" height="${h}" alt="${alt}" loading="lazy" decoding="async">`;
+const STATUS_ALT = 'Lodestone status, monitored by Down in Nigeria';
+const slimFoot = () => `<footer class="site-foot slim"><div class="col foot-base"><p>${NAV.map(([h, t]) => `<a href="${h}">${t}</a>`).join(' · ')}</p><p class="badges-row"><a href="${DOWN}/s/lodestone">${badge('lodestone', 'chip', 212, 36, STATUS_ALT)}</a></p><p>Lodestone ${pkg.version} · MIT licence · © 2026 Extrafemi · No cookies, no tracking.</p></div></footer>`;
+const statusBlock = `<section class="col status" aria-labelledby="status-h"><div class="status-head"><h2 id="status-h">Live status</h2><p>Checked around the clock, independently, by <a href="${DOWN}/developers">Down in Nigeria</a>. Tap a badge for its full record.</p></div><div class="status-grid"><a class="stat" href="${DOWN}/s/lodestone"><span class="tag">This site</span><span class="badges">${badge('lodestone', 'card', 272, 84, STATUS_ALT)}${badge('lodestone', 'chip', 212, 36, STATUS_ALT)}</span></a></div></section>`;
 
 // 1. The failure kinds, with the library's own sentences.
 const { LodestoneError, explain } = lib;
@@ -138,7 +144,7 @@ const ticker = ['<b>0</b> dependencies', 'runs on Node, Workers, Deno and Bun', 
 rmSync(out, { recursive: true, force: true });
 mkdirSync(out, { recursive: true });
 const html = readFileSync(join(here, 'src/index.html'), 'utf8')
-  .replaceAll('{{v}}', v).replaceAll('{{sitebar}}', siteBar('')).replaceAll('{{ticker}}', ticker).replaceAll('{{kinds}}', String(kinds)).replaceAll('{{Kinds}}', WORD[kinds] ?? String(kinds)).replaceAll('{{version}}', pkg.version).replaceAll('{{commit}}', commit).replaceAll('{{date}}', date)
+  .replaceAll('{{v}}', v).replaceAll('{{sitebar}}', siteBar('')).replaceAll('{{status}}', statusBlock).replaceAll('{{ticker}}', ticker).replaceAll('{{kinds}}', String(kinds)).replaceAll('{{Kinds}}', WORD[kinds] ?? String(kinds)).replaceAll('{{version}}', pkg.version).replaceAll('{{commit}}', commit).replaceAll('{{date}}', date)
   .replace('{{providers}}', providers).replace('{{vet}}', vet).replace('{{filemap}}', filemap)
   .replace('{{data}}', JSON.stringify({ errors }).replace(/</g, '\\u003c'));
 writeFileSync(join(out, 'index.html'), html);
@@ -148,7 +154,10 @@ copyFileSync(join(here, 'src/theme.js'), join(out, 'theme.js'));
 copyFileSync(join(here, 'src/menu.js'), join(out, 'menu.js'));
 cpSync(join(here, 'src/fonts'), join(out, 'fonts'), { recursive: true });
 copyFileSync(join(here, 'src/favicon.svg'), join(out, 'favicon.svg'));
-copyFileSync(join(here, 'src/_headers'), join(out, '_headers'));
+copyFileSync(join(here, 'src/runs-on.js'), join(out, 'runs-on.js'));
+// connect-src lists exactly the origins of the live summaries named in runs-on.json (the home page's weather reads KeyStone's too).
+const connectOrigins = [...new Set([...RUNS_ON.map((r) => r.weather).filter(Boolean), 'https://keystone.extrafemi.com/api/ai-weather'].map((u) => new URL(u).origin))];
+writeFileSync(join(out, '_headers'), readFileSync(join(here, 'src/_headers'), 'utf8').replace(/connect-src [^;]*;/, `connect-src ${connectOrigins.join(' ')};`));
 copyFileSync(join(here, 'src/robots.txt'), join(out, 'robots.txt'));
 
 // 6. Documentation pages, built from the repository's own markdown, so they cannot drift from it.
@@ -214,20 +223,20 @@ function md(src, fromFile) {
 }
 
 const css1 = `<link rel="icon" href="/favicon.svg" type="image/svg+xml"><link rel="stylesheet" href="/fonts/fonts.css"><link rel="stylesheet" href="/style.css?v=${v}"><script src="/theme.js?v=${v}"></script><script src="/menu.js?v=${v}" defer></script>`;
-const page = ({ path, title, desc, body, crumbs = true, wide = false }) => `<!doctype html>
+const page = ({ path, title, desc, body, crumbs = true, wide = false, scripts = '' }) => `<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>${esc(title)} · Lodestone</title>
 <meta name="description" content="${esc(desc)}">
 <link rel="canonical" href="${SITE}/${path}${path ? '/' : ''}">
 <meta property="og:type" content="article"><meta property="og:site_name" content="Lodestone"><meta property="og:title" content="${esc(title)} · Lodestone"><meta property="og:description" content="${esc(desc)}"><meta property="og:url" content="${SITE}/${path}/">
 <meta name="theme-color" content="#fdfcf9" media="(prefers-color-scheme: light)"><meta name="theme-color" content="#12110e" media="(prefers-color-scheme: dark)">
-${css1}</head>
+${css1}${scripts}</head>
 <body><a class="skip" href="#main">Skip to content</a>
 <header class="sitebar">${siteBar(path)}</header>
 <main id="main" class="doc${wide ? ' wide' : ''}">${crumbs ? '<p class="crumbs tag"><a href="/docs/">Docs</a></p>' : ''}
 ${body}
 </main>
-<footer class="site-foot slim"><div class="col foot-base"><p>${NAV.map(([h, t]) => `<a href="${h}">${t}</a>`).join(' · ')}</p><p>Lodestone ${pkg.version} · built from commit ${commit} on ${date} · MIT licence. This page is built from <a href="${GH}">the repository</a>'s own markdown.</p><p>© 2026 Extrafemi · No cookies, no tracking.</p></div></footer>
+${slimFoot()}
 </body></html>
 `;
 
@@ -256,6 +265,7 @@ const logo = (file, name) => {
   return d ? `<svg class="logo" viewBox="0 0 24 24" role="img" aria-label="${name} logo" fill="currentColor"><path d="${d}"/></svg>` : '';
 };
 const failList = errors.filter((e) => !e.hidden).map((e) => `<details><summary><code>${esc(e.kind)}</code><span>${esc(e.what)}</span></summary><p class="say">“${esc(e.say)}”</p></details>`).join('');
+const runCard = (r) => `<div class="fam-card"><span class="tag">${r.kind === 'runs' ? 'Runs on Lodestone' : 'Feeds scorecards to Lodestone'}</span><h2><a href="${esc(r.url)}">${esc(r.name)}</a></h2><p>${esc(r.description)}</p>${r.weather ? `<p class="live-line" data-weather="${esc(r.weather)}">Reading the live counts…</p>` : ''}<p class="go"><a href="${esc(r.url)}">${esc(r.url.replace(/^https:\/\//, '').replace(/\/$/, ''))}</a></p></div>`;
 const extras = [
   { path: 'providers', title: 'Providers', desc: 'Every fallback provider Lodestone has a preset for, and exactly how far each has been checked.', wide: true,
     body: `<h1>Providers</h1><p class="lead">Any service that speaks OpenAI's chat API works through <code>openaiCompatible()</code>, and presets exist for the ones Lodestone has been checked against. Here is exactly how far each check went.</p><div class="tablewrap"><table><thead><tr><th>Preset</th><th>Service</th><th>What was checked</th></tr></thead><tbody>${providers}</tbody></table></div><p class="cap">${esc(providersCap)}</p><p class="cap">Checking a provider yourself: <code>node scripts/live-check.mjs</code> in the repository calls each one once with keys from your environment and prints what happened, without printing a key.</p>` },
@@ -282,6 +292,12 @@ const extras = [
 <div class="card"><h3>The Python port is alpha</h3><p>It can't read provider model lists other than OpenRouter's, so Requesty's price, lab and data-policy details and <code>discover</code> are TypeScript-only, and a private call uses a fallback only if you vouch for it. A hung request is cut off at its slice and the next model is tried, but its thread only ends at its socket timeout. Images, streaming, tool calling and scorecards do not exist in Python. It has been tested against a local HTTP server and fake providers, and has made live calls to Groq and OpenRouter, which both answered; Requesty was refused for lack of credit and no other provider has been tried live from Python, which is the main reason it is alpha. <a href="/docs/python/">Details</a>.</p></div>
 </div>
 <p class="cap">Also worth knowing: only Groq and OpenRouter have been seen to answer a live call, so every other provider is checked against fakes. <a href="/providers/">The Providers page</a> says exactly how far each check went, and <a href="/where-it-runs/">Where it runs</a> says what has been deployed where.</p>` },
+  { path: 'runs-on-lodestone', title: 'Runs on Lodestone', desc: 'The tools that call AI models through Lodestone, and the evaluators that feed it scorecards.', wide: true, scripts: '<script src="/runs-on.js?v=' + v + '" defer></script>',
+    body: `<h1>Runs on Lodestone</h1><p class="lead">The tools that use Lodestone, and the evaluators that feed it. This page is read from one file in the repository, so it grows as more tools join.</p>
+<h2>Runs on Lodestone</h2><div class="fam-grid">${RUNS_ON.filter((r) => r.kind === 'runs').map(runCard).join('')}</div>
+<h2>Feeds scorecards to Lodestone</h2><div class="fam-grid">${RUNS_ON.filter((r) => r.kind === 'feeds').map(runCard).join('')}</div>
+<h2>Add yours</h2><p>Using Lodestone? <a href="https://github.com/obasaolorunfemi-ai/lodestone/issues/new">Open an issue</a> with the name, the address and what it uses Lodestone for, or send a pull request that adds a line to <code>site/src/runs-on.json</code>. Tools are added by hand, after checking that they really use it.</p>
+<p>To get a live line like KeyStone's, publish a small public summary of your attempts: for each model, how many were tried, how many answered, how many timed out and how long the answers took. Counts and times only, never a prompt or an answer, with <code>Access-Control-Allow-Origin</code> set to this site. <a href="https://github.com/obasaolorunfemi-ai/lodestone/blob/main/docs/protecting-your-budget.md">KeyStone's is a good model to copy</a>. Lodestone itself never reports where it runs: it makes no network calls except to the providers you configure.</p>` },
   { path: 'code-map', title: 'Code map', desc: 'Where each piece of Lodestone lives in src/, generated from the repository.', wide: true,
     body: `<h1>Code map</h1><p class="lead">Where each piece lives in <code>src/</code>. This is generated from the files in the repository when the site is built. <b>+tests</b> marks a file with its own test file; the others are covered by a shared one or by the call-path tests.</p><div class="map">${filemap}</div>` },
   { path: 'where-it-runs', title: 'Where it runs', desc: 'Netlify, Cloudflare Workers, Base44, Vercel and Render: which run Lodestone in production, which are checked in CI, and which are not tested yet.', wide: true,
@@ -302,7 +318,7 @@ const extras = [
 ];
 for (const x of extras) {
   mkdirSync(join(out, x.path), { recursive: true });
-  writeFileSync(join(out, x.path, 'index.html'), page({ path: x.path, title: x.title, desc: x.desc, body: x.body, crumbs: false, wide: x.wide }));
+  writeFileSync(join(out, x.path, 'index.html'), page({ path: x.path, title: x.title, desc: x.desc, body: x.body, crumbs: false, wide: x.wide, scripts: x.scripts }));
   pages.push({ loc: `/${x.path}/`, lastmod: date });
 }
 writeFileSync(join(out, 'sitemap.xml'), `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${pages.map((p) => `<url><loc>${SITE}${p.loc}</loc><lastmod>${p.lastmod}</lastmod></url>`).join('')}</urlset>\n`);
