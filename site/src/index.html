@@ -161,28 +161,6 @@
   <p class="cap" id="weather-note">One app's traffic on one key, so it describes KeyStone's week, not every tool's. Counts are approximate: two requests finishing together can lose one. A model is tried because the ones before it failed, so a low rate here is not a ranking of the models. Models with fewer than five attempts are left out.</p>
 </section>
 
-<section id="safety" aria-labelledby="safety-h">
-  <div class="divider"><span class="tag">Lists that keep themselves alive</span><span class="tag">Short and safe</span></div>
-  <div class="head">
-    <h2 id="safety-h">Discovery that never makes a request slower</h2>
-    <p>A model list that nobody edits goes stale; one that fills itself can grow until it is slow, or admit something you would not choose. Lodestone does the first and bounds the second.</p>
-  </div>
-  <div class="three rise">
-    <div class="card"><span class="tag">Alive</span><h3>Outdated models drop out</h3><p>A daily <code>checkModels()</code> saves each provider's catalogue. A model it no longer lists is dropped. One with an expiry date within a week is left out (OpenRouter publishes the date; 14 models carried one the day this was written). One failing right now is skipped by the breaker.</p></div>
-    <div class="card"><span class="tag">Short</span><h3>A pool of 8, three tried</h3><p>The ranked pool lives in the background. Models that are down are filtered out, and a request tries at most three. When one fails, the next best takes its place for later requests, so adding models adds choice, not delay.</p></div>
-    <div class="card"><span class="tag">Safe</span><h3>Trust is checked, not assumed</h3><p>A discovered model must come from a trusted lab. You can block labs or models, refuse any a provider says is trained on or keeps prompts too long, and mark a single call <code>private</code>.</p></div>
-  </div>
-  <div class="pool" aria-label="Example pool"><span class="down">gemma-4-26b (429)</span><span class="down">nemotron-lightning (hung)</span><span class="live">nemotron-ultra</span><span class="live">gemma-4-31b</span><span class="live">qwen3.5-flash</span><span>mistral-small</span><span>deepseek-v4</span><span>phi-5-mini</span></div>
-  <p class="cap">Illustrative: a pool of eight. The two that are down are skipped; the next three live ones are tried.</p>
-  <h3 class="sub">What the trust policy decides</h3>
-  <div class="tablewrap"><table>
-    <thead><tr><th>Model found by discovery</th><th>Default policy</th><th>Strict: no training, prompts kept ≤ 30 days</th></tr></thead>
-    <tbody>{{vet}}</tbody>
-  </table></div>
-  <p class="cap">Verdicts are computed by the library's own <code>vet()</code> as this page is built, on rows shaped like real lists. On 28 Oct 2026, of Requesty's 807 chat models, 205 came from a lab not on the default list and 9 were marked as trained on. LLM API publishes nothing about what happens to prompts, so under a strict policy none of its models can be <em>discovered</em>; models you name yourself still work.</p>
-  <p class="note"><b>What this is not.</b> There is no vulnerability database for hosted AI models, so Lodestone does not claim to scan one. It checks what providers actually publish, and enforces your rules on it. Those facts are self-reported by providers. <a href="/security/">The security page</a> lists exactly what is and is not checked.</p>
-</section>
-
 <section id="failures" aria-labelledby="failures-h">
   <div class="divider"><span class="tag">When everything fails</span><span class="tag">{{kinds}} kinds</span></div>
   <div class="head">
@@ -281,13 +259,14 @@ try {
 </section>
 
 <section id="more" aria-labelledby="more-h">
-  <div class="divider"><span class="tag">Go deeper</span><span class="tag">3 more pages</span></div>
+  <div class="divider"><span class="tag">Go deeper</span><span class="tag">4 more pages</span></div>
   <div class="head">
     <h2 id="more-h">The details have their own pages</h2>
     <p>The walkthrough above is the short version. These pages hold the tables and maps you will want when you are setting it up.</p>
   </div>
-  <div class="three">
+  <div class="four">
     <a class="card go" href="/providers/"><span class="tag">Providers</span><h3>How far each provider was checked</h3><p>Every fallback service, and exactly what has and has not been seen working live.</p></a>
+    <a class="card go" href="/model-lists/"><span class="tag">Model lists</span><h3>Lists that keep themselves alive</h3><p>How a model list drops what is gone, stays short and admits only what you trust.</p></a>
     <a class="card go" href="/where-it-runs/"><span class="tag">Where it runs</span><h3>Netlify, Cloudflare Workers, Base44, Vercel, Render</h3><p>Which platforms run it in production, which are checked in CI, and which are not tested yet.</p></a>
     <a class="card go" href="/code-map/"><span class="tag">Code map</span><h3>Where each piece lives in <code>src/</code></h3><p>Generated from the repository, with the files that have their own tests marked.</p></a>
   </div>
@@ -330,6 +309,7 @@ try {
       <h3>Pages</h3>
       <ul>
         <li><a href="/providers/">Providers</a></li>
+        <li><a href="/model-lists/">Model lists</a></li>
         <li><a href="/where-it-runs/">Where it runs</a></li>
         <li><a href="/code-map/">Code map</a></li>
         <li><a href="/docs/">Docs</a></li>
