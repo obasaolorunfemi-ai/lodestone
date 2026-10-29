@@ -14,9 +14,9 @@ const lib = await import(join(root, 'dist/index.js'));
 const pkg = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'));
 const RUNS_ON = JSON.parse(readFileSync(join(here, 'src/runs-on.json'), 'utf8'));
 const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-const NAV = [['/', 'Home'], ['/providers/', 'Providers'], ['/model-lists/', 'Model lists'], ['/when-everything-fails/', 'When everything fails'], ['/where-it-runs/', 'Where it runs'], ['/runs-on-lodestone/', 'Runs on Lodestone'], ['/limits/', 'Honest limits'], ['/docs/', 'Docs'], ['/code-map/', 'Code map'], ['/changelog/', 'Changelog'], ['/security/', 'Security'], ['https://github.com/obasaolorunfemi-ai/lodestone', 'GitHub']];
+const NAV = [['/', 'Home'], ['/providers/', 'Providers'], ['/model-lists/', 'Model lists'], ['/when-everything-fails/', 'When everything fails'], ['/where-it-runs/', 'Where it runs'], ['/runs-on-lodestone/', 'Runs on Lodestone'], ['/limits/', 'Honest limits'], ['/getting-smarter/', 'Getting smarter'], ['/using-it/', 'Using it'], ['/docs/', 'Docs'], ['/code-map/', 'Code map'], ['/changelog/', 'Changelog'], ['/security/', 'Security'], ['https://github.com/obasaolorunfemi-ai/lodestone', 'GitHub']];
 /** The site links, the same on every page. Docs pages count as Docs, so the Docs link is marked while you read one. */
-const SECTIONS = [['for', 'Who for'], ['problem', 'Problem'], ['watch', 'Watch a call'], ['measured', 'Measured'], ['weather', 'Weather'], ['scorecards', 'Scorecards'], ['using', 'Using it']];
+const SECTIONS = [['for', 'Who for'], ['problem', 'Problem'], ['watch', 'Watch a call'], ['measured', 'Measured'], ['weather', 'Weather']];
 /** The menu, the same on every page: the site's pages, then the sections of the home page. On the home page a section link is an in-page anchor; elsewhere it points at the home page. Weather is hidden until the home page finds counts to show. */
 const navHtml = (path) => {
   const home = path === '';
@@ -27,6 +27,12 @@ const navHtml = (path) => {
   const sections = SECTIONS.map(([id, t]) => `<a href="${home ? '' : '/'}#${id}"${id === 'weather' ? ' id="nav-weather" hidden' : ''}>${t}</a>`).join('');
   return `<div class="menu-group"><span class="tag">Pages</span>${pages}</div><div class="menu-group"><span class="tag">The walkthrough</span>${sections}</div>`;
 };
+
+// The scroll of providers on the home page. A dot says how far each has been checked, the same as the Providers page.
+const STRIP = [['OpenRouter', 'live'], ['Groq', 'live'], ['Requesty', 'list'], ['LLM API', 'list'], ['Cerebras', 'preset'], ['OpenAI', 'preset'], ['Mistral', 'preset'], ['Together', 'preset'], ['Ollama', 'preset'], ['Anthropic', 'preset'], ['Google', 'preset']];
+const STRIP_WORDS = { live: 'answered a live call', list: 'model list read', preset: 'preset, not yet called live' };
+const stripItems = STRIP.map(([n, k]) => `<li><i class="dot ${k}"></i>${n}</li>`).join('');
+const providerStrip = `<section class="provider-strip" aria-labelledby="strip-h"><p class="tag" id="strip-h">Calls through</p><div class="marquee" aria-hidden="true"><ul class="marquee-track">${stripItems}${stripItems}</ul></div><ul class="visually-hidden">${STRIP.map(([n, k]) => `<li>${n}: ${STRIP_WORDS[k]}</li>`).join('')}</ul><p class="cap"><span class="key"><i class="dot live"></i>answered a live call</span><span class="key"><i class="dot list"></i>model list read</span><span class="key"><i class="dot preset"></i>preset, not yet called live</span> <a href="/providers/">How far each was checked</a></p></section>`;
 const THEME_BTN = '<button type="button" class="icon-btn" id="theme" aria-label="Switch to dark mode"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg></button>';
 const MENU_BTN = '<button type="button" class="icon-btn menu-btn" id="menu" aria-expanded="false" aria-controls="sections" aria-label="Open menu"><svg class="i-open" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg><svg class="i-close" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button>';
 /** The top row of the site bar, the same on every page including the 404: brand, the menu with every site link, the light/dark switch and the menu button. */
@@ -144,7 +150,7 @@ const ticker = ['<b>0</b> dependencies', 'runs on Node, Workers, Deno and Bun', 
 rmSync(out, { recursive: true, force: true });
 mkdirSync(out, { recursive: true });
 const html = readFileSync(join(here, 'src/index.html'), 'utf8')
-  .replaceAll('{{v}}', v).replaceAll('{{sitebar}}', siteBar('')).replaceAll('{{status}}', statusBlock).replaceAll('{{ticker}}', ticker).replaceAll('{{kinds}}', String(kinds)).replaceAll('{{Kinds}}', WORD[kinds] ?? String(kinds)).replaceAll('{{version}}', pkg.version).replaceAll('{{commit}}', commit).replaceAll('{{date}}', date)
+  .replaceAll('{{v}}', v).replaceAll('{{sitebar}}', siteBar('')).replaceAll('{{status}}', statusBlock).replaceAll('{{provider_strip}}', providerStrip).replaceAll('{{ticker}}', ticker).replaceAll('{{kinds}}', String(kinds)).replaceAll('{{Kinds}}', WORD[kinds] ?? String(kinds)).replaceAll('{{version}}', pkg.version).replaceAll('{{commit}}', commit).replaceAll('{{date}}', date)
   .replace('{{providers}}', providers).replace('{{vet}}', vet).replace('{{filemap}}', filemap)
   .replace('{{data}}', JSON.stringify({ errors }).replace(/</g, '\\u003c'));
 writeFileSync(join(out, 'index.html'), html);
@@ -298,6 +304,68 @@ const extras = [
 <h2>Feeds scorecards to Lodestone</h2><div class="fam-grid">${RUNS_ON.filter((r) => r.kind === 'feeds').map(runCard).join('')}</div>
 <h2>Add yours</h2><p>Using Lodestone? <a href="https://github.com/obasaolorunfemi-ai/lodestone/issues/new">Open an issue</a> with the name, the address and what it uses Lodestone for, or send a pull request that adds a line to <code>site/src/runs-on.json</code>. Tools are added by hand, after checking that they really use it.</p>
 <p>To get a live line like KeyStone's, publish a small public summary of your attempts: for each model, how many were tried, how many answered, how many timed out and how long the answers took. Counts and times only, never a prompt or an answer, with <code>Access-Control-Allow-Origin</code> set to this site. <a href="https://github.com/obasaolorunfemi-ai/lodestone/blob/main/docs/protecting-your-budget.md">KeyStone's is a good model to copy</a>. Lodestone itself never reports where it runs: it makes no network calls except to the providers you configure.</p>` },
+  { path: 'getting-smarter', title: 'Getting smarter over time', desc: 'Scorecards: how an evaluator and Lodestone feed each other, and let measured quality choose the order models are tried in.', wide: true,
+    body: `<h1>Scorecards: let measurements choose the order</h1><p class="lead">Two small JSON formats let an evaluator and Lodestone feed each other without sharing code. <a href="https://naija-eval.extrafemi.com">Naija Eval</a>, which measures translation and speech quality for Hausa, Igbo and Yoruba, is the first to use them. Its scores are translation quality, so they help tasks in those languages, not every task.</p>
+<div class="loop">
+    <div class="node"><h3>Evaluator (Naija Eval)</h3><p>Measures answer quality, such as chrF++ for English→Yoruba, per model.</p></div>
+    <div class="arrows" aria-hidden="true"><div class="r">model-scorecard/1 →</div><div class="l">← model-candidates/1</div><div class="l">← live reliability</div></div>
+    <div class="node"><h3>Lodestone (in your tool)</h3><p>Tries the best-measured models first for tasks you name, lists the models it can call, and records its own success rates and speeds.</p></div>
+  </div>
+  <ul class="method">
+    <li>A scorecard only changes the <i>order</i> models are tried in. Nothing is added or dropped.</li>
+    <li>Scores from fewer than 30 items, or over a year old, are ignored.</li>
+    <li>Unmeasured models keep their slot, so a good unmeasured model is never pushed down.</li>
+    <li>An explicit <code>route</code> is never reordered.</li>
+    <li>If the scorecard fetch fails or takes over 1.5 s, the order is left alone.</li>
+    <li>Live stats keep the last 200 attempts per model and never see prompts or answers.</li>
+  </ul>` },
+  { path: 'using-it', title: 'Using it', desc: 'What a tool writes with Lodestone: one setup, then task-named calls, with the stores, runtimes and Python port it can use.', wide: true,
+    body: `<h1>What a tool writes</h1><p class="lead">Set it up once and share the store. Each call names a task, not a model; Lodestone picks the order, the time slices and the fallbacks.</p>
+<div class="two">
+<pre class="snip"><span class="c">// set up once, and share the store</span>
+const ai = createLodestone({
+  openrouter: { apiKey: OPENROUTER_KEY,
+    allowPaid: true, paidFirst: true,
+    paidModels: ['anthropic/claude-haiku-5.5'],
+    reasoning: (m) => m.startsWith('anthropic/')
+      ? { enabled: false } : { effort: 'low', exclude: true } },
+  fallbacks: [
+    { provider: requesty(), apiKey: REQUESTY_KEY,
+      models: ['bedrock/claude-haiku-5-5'],
+      discover: { fill: { maxPromptUsdPerMTok: 1,
+                          maxCompletionUsdPerMTok: 5 } } },
+    { provider: groq(), apiKey: GROQ_KEY,
+      models: ['openai/gpt-oss-20b'], free: true },
+  ],
+  store, health: createHealth({ store }),
+  spend: createSpendLimit({ store, dailyUsd: 2 }),
+  rateLimit: { limiter: createRateLimiter({ store, max: 20 }),
+               whenOver: 'free-only' },
+  trust: { requireNoTraining: true },
+});
+
+<span class="c">// each call names a task, not a model</span>
+try {
+  const { data } = await ai.json({
+    prompt, validate: isJob, signal: req.signal,
+    caller: userId, private: true });   <span class="c">// a CV: do not keep or train on it</span>
+} catch (err) {
+  return explain(err, { product: 'MyApp' });
+}</pre>
+    <ol class="steps">
+      <li><b>Tiers, not model ids.</b> A task maps to <code>fast</code>, <code>strong</code> or <code>vision</code> (picked automatically when a message has an image). Or pass a fixed <code>route</code> to name provider, model and key yourself.</li>
+      <li><b>Customer keys stay separate.</b> A caller's own key replaces yours and unlocks the paid model, but your fallback providers and your spend ledger are never touched by that call.</li>
+      <li><b>One person cannot empty the budget.</b> Name the <code>caller</code> and each one gets their own allowance (stored as a hash). Over it, they are refused or served from free models only. The spend limit takes a hold per attempt, so a burst cannot overshoot it. <a href="/docs/protecting-your-budget/">How, and what is approximate</a>.</li>
+      <li><b>Daily upkeep.</b> <code>checkModels()</code> refreshes every provider's catalogue and reports what has gone or is retiring. <code>cacheKey</code> and <code>peek()</code> reuse answers for repeatable tasks.</li>
+      <li><b>Cancelling.</b> Pass a <code>signal</code>; when the person leaves, the call and every model after it stop.</li>
+      <li><b>Private by design.</b> <code>onAttempt</code> reports provider, model, outcome and timing only. Prompts and answers are never logged, and a <code>private</code> call is never cached.</li>
+    </ol>
+    <div class="three">
+      <a class="card" href="/docs/stores/"><span class="tag">Shared state</span><h3>Stores for where you deploy</h3><p>Netlify Blobs, Cloudflare KV, Upstash (and Vercel KV) and Deno KV adapters, so the circuit breaker and rate limits are shared between functions.</p></a>
+      <a class="card" href="/docs/runtimes/"><span class="tag">Checked, not assumed</span><h3>Node, Workers, Deno, Bun</h3><p>The same smoke checks run on all four in CI, Workers without the Node compatibility flag.</p></a>
+      <a class="card" href="/docs/python/"><span class="tag">Alpha</span><h3>A Python port</h3><p>Failover, time budget, breaker, spend holds, per-caller limits and <code>explain()</code>, with the standard library only. What it lacks is listed.</p></a>
+    </div>
+  </div>` },
   { path: 'code-map', title: 'Code map', desc: 'Where each piece of Lodestone lives in src/, generated from the repository.', wide: true,
     body: `<h1>Code map</h1><p class="lead">Where each piece lives in <code>src/</code>. This is generated from the files in the repository when the site is built. <b>+tests</b> marks a file with its own test file; the others are covered by a shared one or by the call-path tests.</p><div class="map">${filemap}</div>` },
   { path: 'where-it-runs', title: 'Where it runs', desc: 'Netlify, Cloudflare Workers, Base44, Vercel and Render: which run Lodestone in production, which are checked in CI, and which are not tested yet.', wide: true,
