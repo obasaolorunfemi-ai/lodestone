@@ -6,7 +6,7 @@ from .errors import FAILURE_KINDS, LodestoneError, ProviderError
 from .explain import explain
 from .health import Health
 from .limiter import RateLimiter, RateLimitResult
-from .providers import (Anthropic, Mock, OpenAICompatible, OpenRouter, ProviderReply, ProviderRequest, cerebras, groq, llmapi, mistral, ollama,
+from .providers import (Anthropic, Mock, OpenAICompatible, OpenRouter, ProviderReply, ProviderRequest, cerebras, omniakey, groq, llmapi, mistral, ollama,
                         openai, requesty)
 from .ratelimit_reading import RateLimitReading, read_rate_limit
 from .spend import SpendInfo, SpendLimit
@@ -19,7 +19,7 @@ create_lodestone = Lodestone
 __all__ = [
     "ROUTER", "pick_models", "DEFAULT_MODELS", "DEFAULT_PAID_MODELS", "AttemptEvent", "Fallback", "Lodestone", "create_lodestone", "OpenRouterConfig",
     "Profile", "Result", "RouteStep", "Timing", "try_parse_json", "FAILURE_KINDS", "LodestoneError", "ProviderError", "explain", "Health", "RateLimiter",
-    "RateLimitResult", "Anthropic", "Mock", "OpenAICompatible", "OpenRouter", "ProviderReply", "ProviderRequest", "cerebras", "groq", "llmapi", "mistral",
+    "RateLimitResult", "Anthropic", "Mock", "OpenAICompatible", "OpenRouter", "ProviderReply", "ProviderRequest", "cerebras", "omniakey", "groq", "llmapi", "mistral",
     "ollama", "openai", "requesty", "RateLimitReading", "read_rate_limit", "SpendInfo", "SpendLimit", "MemoryStore", "UpstashStore", "DEFAULT_PUBLISHERS",
     "TrustPolicy", "vet",
 ]

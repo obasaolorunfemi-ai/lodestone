@@ -332,6 +332,13 @@ class _Handler(BaseHTTPRequestHandler):
         pass
 
 
+class Presets(unittest.TestCase):
+    def test_omniakey_names_itself_and_points_at_its_openai_compatible_endpoint(self):
+        from lodestone import omniakey
+        p = omniakey()
+        self.assertEqual((p.name, p._base), ("omniakey", "https://api.omniakey.com/v1"))
+
+
 class RealHttp(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
         self.srv = HTTPServer(("127.0.0.1", 0), _Handler)

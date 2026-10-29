@@ -2,6 +2,10 @@
 
 Versions before 1.0 may change between minor releases; each change that could break a caller is marked **breaking**.
 
+## Unreleased
+
+- **`omniakey()` preset** (TypeScript and Python) for [OmniaKey](https://omniakey.com), a prepaid gateway with an OpenAI-compatible text endpoint. Use it as a `fallbacks` entry. It is a preset only: it has not been called live yet (its model list needs a key), so it is marked that way on the Providers page. Text and JSON calls only; OmniaKey's image, video and music models are outside what Lodestone does.
+
 ## 0.7.0
 
 Security fixes, shared state that works on every platform, per-caller limits, and runtimes beyond Node. Found in a review of 0.6.0.

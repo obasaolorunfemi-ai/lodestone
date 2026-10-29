@@ -143,6 +143,7 @@ OpenRouter is the default, but one provider's outage should not stop your tool. 
 | `requesty()` | [Requesty](https://www.requesty.ai) | Gateway to 800+ models with failover. Publishes price, lab, whether a model is trained on and how long prompts are kept. `requesty({ region: 'eu' })` keeps prompts in the EU. No free models; a 5% markup. |
 | `llmapi()` | [LLM API](https://llmapi.ai) | Gateway to 150+ chat models. Lists price; ignores its image, video and speech models. |
 | `groq()`, `cerebras()` | Groq, Cerebras | Fast inference with free tiers. Use `free: true` so they are not counted against a spend limit. |
+| `omniakey()` | [OmniaKey](https://omniakey.com) | A prepaid gateway for text, image, video and music models, with an OpenAI-compatible text endpoint. Text and JSON calls only here. Its model list needs a key. Not yet called live. |
 | `openai()`, `mistral()`, `together()` | the providers themselves | |
 | `ollama()` | a local server | Free and private. |
 | `anthropic()`, `google()` | direct | Not OpenAI-style, so they have their own adapters. |

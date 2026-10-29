@@ -112,7 +112,10 @@
     <p>A call runs through up to three phases until one answers: OpenRouter's free models, a low-cost paid model, then your fallback providers. These are the real rules; the timings and model names are illustrative, except where a scenario says it was measured.</p>
   </div>
   <div class="sim">
-    <div class="scen" id="scen" role="group" aria-label="Scenarios"></div>
+    <div class="picker">
+      <label class="tag" for="scen">Pick a scenario</label>
+      <div class="select-wrap"><select id="scen"></select></div>
+    </div>
     <div class="board">
       <div class="board-top"><h3 id="stitle"></h3><span class="clock" id="clock" aria-live="off">0.0 s</span></div>
       <div class="call" id="scall"></div>

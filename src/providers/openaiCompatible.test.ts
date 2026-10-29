@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { cerebras, groq, llmapi, mistral, normalizeGroq, normalizeLlmapi, normalizeRequesty, ollama, openai, openaiCompatible, requesty, together } from './openaiCompatible.js';
+import { cerebras, omniakey, groq, llmapi, mistral, normalizeGroq, normalizeLlmapi, normalizeRequesty, ollama, openai, openaiCompatible, requesty, together } from './openaiCompatible.js';
 import { ProviderError } from '../errors.js';
 
 const base = { model: 'm', apiKey: 'secret', maxTokens: 100, signal: new AbortController().signal };
@@ -87,6 +87,7 @@ describe('presets', () => {
       check(llmapi, 'https://api.llmapi.ai/v1/models'),
       check(groq, 'https://api.groq.com/openai/v1/models'),
       check(cerebras, 'https://api.cerebras.ai/v1/models'),
+      check(omniakey, 'https://api.omniakey.com/v1/models'),
       check(openai, 'https://api.openai.com/v1/models'),
       check(mistral, 'https://api.mistral.ai/v1/models'),
       check(together, 'https://api.together.xyz/v1/models'),
@@ -94,7 +95,7 @@ describe('presets', () => {
     ]);
   });
   it('are named for the service, so a failure can say which one', () => {
-    expect([requesty(), llmapi(), groq(), cerebras(), openai(), mistral(), together(), ollama()].map((p) => p.name)).toEqual(['requesty', 'llmapi', 'groq', 'cerebras', 'openai', 'mistral', 'together', 'ollama']);
+    expect([requesty(), llmapi(), groq(), cerebras(), omniakey(), openai(), mistral(), together(), ollama()].map((p) => p.name)).toEqual(['requesty', 'llmapi', 'groq', 'cerebras', 'omniakey', 'openai', 'mistral', 'together', 'ollama']);
   });
 });
 

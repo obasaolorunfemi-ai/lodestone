@@ -116,6 +116,8 @@ export const requesty = (o: PresetOptions & { region?: 'eu' } = {}) =>
 export const llmapi = (o: PresetOptions = {}) => openaiCompatible({ name: 'llmapi', baseUrl: 'https://api.llmapi.ai/v1', normalize: normalizeLlmapi, ...o });
 /** https://groq.com: fast inference with a free developer tier. */
 export const groq = (o: PresetOptions = {}) => openaiCompatible({ name: 'groq', baseUrl: 'https://api.groq.com/openai/v1', normalize: normalizeGroq, ...o });
+/** https://omniakey.com: a prepaid gateway to text, image, video and music models, with an OpenAI-compatible text endpoint (api.omniakey.com/v1). Its model list needs a key (401 without one), and its site says it does not switch a request to a different model by itself, which is what Lodestone does on top of it. Not yet called live. */
+export const omniakey = (o: PresetOptions = {}) => openaiCompatible({ name: 'omniakey', baseUrl: 'https://api.omniakey.com/v1', ...o });
 /** https://cerebras.ai: fast inference with a free tier. */
 export const cerebras = (o: PresetOptions = {}) => openaiCompatible({ name: 'cerebras', baseUrl: 'https://api.cerebras.ai/v1', ...o });
 export const openai = (o: PresetOptions = {}) => openaiCompatible({ name: 'openai', baseUrl: 'https://api.openai.com/v1', ...o });

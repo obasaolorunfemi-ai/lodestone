@@ -29,7 +29,7 @@ const navHtml = (path) => {
 };
 
 // The scroll of providers on the home page. A dot says how far each has been checked, the same as the Providers page.
-const STRIP = [['OpenRouter', 'live'], ['Groq', 'live'], ['Requesty', 'list'], ['LLM API', 'list'], ['Cerebras', 'preset'], ['OpenAI', 'preset'], ['Mistral', 'preset'], ['Together', 'preset'], ['Ollama', 'preset'], ['Anthropic', 'preset'], ['Google', 'preset']];
+const STRIP = [['OpenRouter', 'live'], ['Groq', 'live'], ['Requesty', 'list'], ['LLM API', 'list'], ['OmniaKey', 'preset'], ['Cerebras', 'preset'], ['OpenAI', 'preset'], ['Mistral', 'preset'], ['Together', 'preset'], ['Ollama', 'preset'], ['Anthropic', 'preset'], ['Google', 'preset']];
 const STRIP_WORDS = { live: 'answered a live call', list: 'model list read', preset: 'preset, not yet called live' };
 const stripItems = STRIP.map(([n, k]) => `<li><i class="dot ${k}"></i>${n}</li>`).join('');
 const providerStrip = `<section class="provider-strip" aria-labelledby="strip-h"><p class="tag" id="strip-h">Calls through</p><div class="marquee" aria-hidden="true"><ul class="marquee-track">${stripItems}${stripItems}</ul></div><ul class="visually-hidden">${STRIP.map(([n, k]) => `<li>${n}: ${STRIP_WORDS[k]}</li>`).join('')}</ul><p class="cap"><span class="key"><i class="dot live"></i>answered a live call</span><span class="key"><i class="dot list"></i>model list read</span><span class="key"><i class="dot preset"></i>preset, not yet called live</span> <a href="/providers/">How far each was checked</a></p></section>`;
@@ -88,6 +88,7 @@ const providers = [
   ['groq()', 'Groq', 'ok', 'a chat call answered live on 28 Oct 2026 (openai/gpt-oss-20b, about 1 s); the model list was read, 11 entries of which 4 are chat models', 'the list also holds speech and safety models, which Lodestone now leaves out; the model Lodestone first listed, llama-3.3-70b-versatile, had been withdrawn (a 404, reported as withdrawn)'],
   ['requesty()', 'Requesty', 'warn', 'key accepted and the model list read live (807 chat models, with price, lab and data policy)', 'the chat call was refused with 402, payment required, because the account had no credit, so no answer has been seen from it'],
   ['llmapi()', 'LLM API', 'ok', 'model list read live (152 chat of 393 models; image, video, speech and embedding ignored)', 'chat call not made: no key'],
+  ['omniakey()', 'OmniaKey', 'warn', 'a preset for its OpenAI-compatible text endpoint; its model list answers 401 without a key', 'not called live yet; image, video and music models are outside what Lodestone does'],
   ['cerebras()', 'Cerebras', 'warn', 'endpoint answers (needs a key); free-tier terms not checked', 'untested with a key'],
   ['openai(), mistral(), together()', 'the providers themselves', 'warn', 'endpoint answers (needs a key)', 'untested with a key'],
   ['ollama()', 'a local server', 'warn', 'the standard local endpoint', 'untested here'],
