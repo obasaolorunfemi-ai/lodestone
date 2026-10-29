@@ -1,6 +1,6 @@
 # Lodestone for Python
 
-Reliable AI calls on a shoestring budget. A Python port of [Lodestone](https://lodestone.extrafemi.com): it sits between your code and AI models, and when a model is withdrawn, slow, rate-limited or down it moves to the next one, stays inside your time limit, spends only what you allow, and, if everything fails, tells the person what went wrong in plain words.
+Reliable AI calls for tools, running serverless. A Python port of [Lodestone](https://lodestone.extrafemi.com): it sits between your code and AI models, and when a model is withdrawn, slow, rate-limited or down it moves to the next one, stays inside your time limit, spends only what you allow, and, if everything fails, tells the person what went wrong in plain words.
 
 Zero dependencies (the standard library only), Python 3.10 or newer. **Alpha (0.1).** Read "What is not in the Python port yet" before you rely on it.
 
@@ -43,7 +43,7 @@ For a script, `ai.complete_sync("hello")` runs a call to the end.
 
 Everything in the TypeScript library's [README](../README.md) about these, with the same defaults:
 
-- Free models first, then a low-cost paid model, then your `fallbacks`, inside a 24 s budget (`budget_ms`) with a slice for each attempt.
+- Free models first, then a paid model, then your `fallbacks`, inside a 24 s budget (`budget_ms`) with a slice for each attempt.
 - A model list that checks itself against OpenRouter's catalogue: a withdrawn model is dropped and a current one takes its place.
 - `json()` skips a model whose answer is not valid JSON or fails your `validate`.
 - Typed failures (`LodestoneError.kind`) and `explain()`, with the same sentences.
