@@ -15,10 +15,17 @@ const pkg = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'));
 const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 const NAV = [['/', 'Home'], ['/providers/', 'Providers'], ['/where-it-runs/', 'Where it runs'], ['/docs/', 'Docs'], ['/code-map/', 'Code map'], ['/changelog/', 'Changelog'], ['/security/', 'Security'], ['https://github.com/obasaolorunfemi-ai/lodestone', 'GitHub']];
 /** The site links, the same on every page. Docs pages count as Docs, so the Docs link is marked while you read one. */
-const navHtml = (path) => NAV.map(([h, t]) => {
-  const here = h === '/' ? path === '' : h.startsWith('/') && (path === h.slice(1, -1) || (h === '/docs/' && path.startsWith('docs')));
-  return `<a href="${h}"${here ? ' aria-current="page"' : ''}>${t}</a>`;
-}).join('');
+const SECTIONS = [['for', 'Who for'], ['problem', 'Problem'], ['watch', 'Watch a call'], ['measured', 'Measured'], ['weather', 'Weather'], ['safety', 'Safety'], ['failures', 'Failures'], ['scorecards', 'Scorecards'], ['using', 'Using it'], ['limits', 'Limits']];
+/** The menu, the same on every page: the site's pages, then the sections of the home page. On the home page a section link is an in-page anchor; elsewhere it points at the home page. Weather is hidden until the home page finds counts to show. */
+const navHtml = (path) => {
+  const home = path === '';
+  const pages = NAV.map(([h, t]) => {
+    const here = h === '/' ? home : h.startsWith('/') && (path === h.slice(1, -1) || (h === '/docs/' && path.startsWith('docs')));
+    return `<a href="${h}"${here ? ' aria-current="page"' : ''}>${t}</a>`;
+  }).join('');
+  const sections = SECTIONS.map(([id, t]) => `<a href="${home ? '' : '/'}#${id}"${id === 'weather' ? ' id="nav-weather" hidden' : ''}>${t}</a>`).join('');
+  return `<div class="menu-group"><span class="tag">Pages</span>${pages}</div><div class="menu-group"><span class="tag">The walkthrough</span>${sections}</div>`;
+};
 const THEME_BTN = '<button type="button" class="icon-btn" id="theme" aria-label="Switch to dark mode"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg></button>';
 const MENU_BTN = '<button type="button" class="icon-btn menu-btn" id="menu" aria-expanded="false" aria-controls="sections" aria-label="Open menu"><svg class="i-open" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg><svg class="i-close" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button>';
 /** The top row of the site bar, the same on every page including the 404: brand, the menu with every site link, the light/dark switch and the menu button. */
@@ -257,7 +264,7 @@ const extras = [
 <div class="plat"><h2>Render</h2><span class="chip info">Runtime tested</span><p>A Render web service is a Node server, covered by the Node checks. Not deployed on Render yet. A server has no function time limit, but the time budget still protects the person who is waiting.</p><p class="store">Shared state: <code>upstashStore</code>, or memory on a single instance</p></div>
 </div>
 <h2>Runtimes checked on every change</h2>
-<div class="runtimes-row"><span>Node 20</span><span>Node 22</span><span>Node 24</span><span>Cloudflare workerd</span><span>Deno</span><span>Bun</span><span>Python 3.10, 3.12, 3.13 (alpha port: one live call, to Groq; everything else tested against fakes)</span></div>
+<div class="runtimes-row"><span>Node 20</span><span>Node 22</span><span>Node 24</span><span>Cloudflare workerd</span><span>Deno</span><span>Bun</span><span>Python 3.10, 3.12, 3.13 (alpha port: live calls to Groq and OpenRouter answered; everything else tested against fakes)</span></div>
 <p class="cap">"Runtime tested" is a claim about the runtime, not the platform: a platform can add limits of its own, such as a smaller time limit or no writable disk. It moves to "In production" only when something real is deployed there.</p>
 <p class="cap">Deployed it somewhere not listed, or on one of these? <a href="https://github.com/obasaolorunfemi-ai/lodestone/issues/new">Tell us in an issue</a>. More detail: <a href="/docs/runtimes/">Runtimes</a>, <a href="/docs/stores/">Stores</a>, <a href="/docs/python/">the Python port</a>.</p>` },
 ];
