@@ -112,7 +112,7 @@ const footHtml = (home) => {
     ${FOOT_GROUPS.map(col).join('\n    ')}
   </div>
   <div class="col foot-base">
-    <p>Lodestone ${pkg.version} · built from commit ${commit} on ${date} · MIT licence. Cardo and Lora are set in the SIL Open Font Licence and are served from this site.</p>
+    <p>Lodestone ${pkg.version} · built from commit ${commit} on ${date} · MIT licence. Newsreader and Inter are set in the SIL Open Font Licence and are served from this site.</p>
     <p>© 2026 Extrafemi · No cookies, no tracking. Your light or dark choice is kept in your browser, nowhere else.</p>
   </div>
 </footer>`;
@@ -219,14 +219,12 @@ const theme = readFileSync(join(here, 'src/theme.js'));
 const menu = readFileSync(join(here, 'src/menu.js'));
 const v = createHash('sha256').update(css).update(js).update(theme).update(menu).digest('hex').slice(0, 10);
 
-// The ticker: facts that are written on the page below, so it says nothing the page does not. The one-day test is labelled as one day.
 const kinds = errors.filter((e) => !e.hidden).length;
 const WORD = { 10: 'Ten', 11: 'Eleven', 12: 'Twelve', 13: 'Thirteen', 14: 'Fourteen' };
-const ticker = ['<b>0</b> dependencies', 'runs on Node, Workers, Deno and Bun', `<b>${kinds}</b> kinds of failure, each with plain advice`, 'paid model about <b>3 s</b> for under a tenth of a cent, measured 28 Oct 2026', 'in one day\'s test, <b>1 in 15</b> free answers was usable', 'MIT licence'].map((t) => `<span>${t}</span>`).join('');
 rmSync(out, { recursive: true, force: true });
 mkdirSync(out, { recursive: true });
 const html = readFileSync(join(here, 'src/index.html'), 'utf8')
-  .replaceAll('{{v}}', v).replaceAll('{{sitebar}}', siteBar('')).replaceAll('{{ld}}', homeLd).replaceAll('{{footer}}', footHtml(true)).replaceAll('{{provider_strip}}', providerStrip).replaceAll('{{ticker}}', ticker).replaceAll('{{kinds}}', String(kinds)).replaceAll('{{Kinds}}', WORD[kinds] ?? String(kinds)).replaceAll('{{version}}', pkg.version).replaceAll('{{commit}}', commit).replaceAll('{{date}}', date)
+  .replaceAll('{{v}}', v).replaceAll('{{sitebar}}', siteBar('')).replaceAll('{{ld}}', homeLd).replaceAll('{{footer}}', footHtml(true)).replaceAll('{{provider_strip}}', providerStrip).replaceAll('{{kinds}}', String(kinds)).replaceAll('{{Kinds}}', WORD[kinds] ?? String(kinds)).replaceAll('{{version}}', pkg.version).replaceAll('{{commit}}', commit).replaceAll('{{date}}', date)
   .replace('{{providers}}', providers).replace('{{vet}}', vet).replace('{{filemap}}', filemap)
   .replace('{{data}}', JSON.stringify({ errors }).replace(/</g, '\\u003c'));
 writeFileSync(join(out, 'index.html'), html);
@@ -332,7 +330,7 @@ const page = ({ path, title, desc, body, crumbs = true, wide = false, scripts = 
 <meta name="description" content="${esc(desc)}">
 <link rel="canonical" href="${SITE}/${path}${path ? '/' : ''}">
 <meta name="robots" content="index,follow,max-image-preview:large"><meta property="og:type" content="article"><meta property="og:site_name" content="Lodestone"><meta property="og:title" content="${esc(SEO_TITLE[path] ?? `${title} · Lodestone`)}"><meta property="og:description" content="${esc(desc)}"><meta property="og:url" content="${SITE}/${path}/"><meta property="og:image" content="${SITE}/og-card.png"><meta property="og:image:width" content="1200"><meta property="og:image:height" content="630"><meta property="og:image:alt" content="Lodestone: 1 in 15 free-model attempts gave a usable answer. Reliable AI calls for tools, running serverless."><meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="${esc(SEO_TITLE[path] ?? `${title} · Lodestone`)}"><meta name="twitter:description" content="${esc(desc)}"><meta name="twitter:image" content="${SITE}/og-card.png">${ldPage(path, title, desc)}
-<meta name="theme-color" content="#fdfcf9" media="(prefers-color-scheme: light)"><meta name="theme-color" content="#12110e" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#faf9f5" media="(prefers-color-scheme: light)"><meta name="theme-color" content="#141413" media="(prefers-color-scheme: dark)">
 ${css1}${scripts}</head>
 <body><a class="skip" href="#main">Skip to content</a>
 <header class="sitebar">${siteBar(path)}</header>
