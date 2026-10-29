@@ -128,19 +128,9 @@ const io = new IntersectionObserver((es) => es.forEach((e) => { if (e.isIntersec
 document.querySelectorAll('.rise').forEach((n) => io.observe(n));
 window.addEventListener('beforeprint', () => document.querySelectorAll('.rise').forEach((n) => n.classList.add('in')));
 
-// Site chrome: theme switch, reading progress, the section being read.
+// Site chrome: reading progress and the section being read (the menu and theme switch are in menu.js, on every page).
 (() => {
   const root = document.documentElement;
-  const btn = $('theme');
-  const isDark = () => (root.dataset.theme ? root.dataset.theme === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches);
-  const label = () => btn.setAttribute('aria-label', isDark() ? 'Switch to light mode' : 'Switch to dark mode');
-  label();
-  btn.addEventListener('click', () => {
-    root.dataset.theme = isDark() ? 'light' : 'dark';
-    try { localStorage.setItem('ls-theme', root.dataset.theme); } catch (e) { /* storage blocked: the choice lasts for this visit */ }
-    label();
-  });
-
   const bar = $('progress');
   let ticking = false;
   const update = () => {
