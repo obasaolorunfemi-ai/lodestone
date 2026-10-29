@@ -13,9 +13,9 @@ const out = join(here, 'public');
 const lib = await import(join(root, 'dist/index.js'));
 const pkg = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'));
 const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-const NAV = [['/', 'Home'], ['/providers/', 'Providers'], ['/where-it-runs/', 'Where it runs'], ['/docs/', 'Docs'], ['/code-map/', 'Code map'], ['/changelog/', 'Changelog'], ['/security/', 'Security'], ['https://github.com/obasaolorunfemi-ai/lodestone', 'GitHub']];
+const NAV = [['/', 'Home'], ['/providers/', 'Providers'], ['/model-lists/', 'Model lists'], ['/where-it-runs/', 'Where it runs'], ['/docs/', 'Docs'], ['/code-map/', 'Code map'], ['/changelog/', 'Changelog'], ['/security/', 'Security'], ['https://github.com/obasaolorunfemi-ai/lodestone', 'GitHub']];
 /** The site links, the same on every page. Docs pages count as Docs, so the Docs link is marked while you read one. */
-const SECTIONS = [['for', 'Who for'], ['problem', 'Problem'], ['watch', 'Watch a call'], ['measured', 'Measured'], ['weather', 'Weather'], ['safety', 'Safety'], ['failures', 'Failures'], ['scorecards', 'Scorecards'], ['using', 'Using it'], ['limits', 'Limits']];
+const SECTIONS = [['for', 'Who for'], ['problem', 'Problem'], ['watch', 'Watch a call'], ['measured', 'Measured'], ['weather', 'Weather'], ['failures', 'Failures'], ['scorecards', 'Scorecards'], ['using', 'Using it'], ['limits', 'Limits']];
 /** The menu, the same on every page: the site's pages, then the sections of the home page. On the home page a section link is an in-page anchor; elsewhere it points at the home page. Weather is hidden until the home page finds counts to show. */
 const navHtml = (path) => {
   const home = path === '';
@@ -251,6 +251,19 @@ const providersCap = 'A "model list read" means Lodestone\'s reader was run agai
 const extras = [
   { path: 'providers', title: 'Providers', desc: 'Every fallback provider Lodestone has a preset for, and exactly how far each has been checked.', wide: true,
     body: `<h1>Providers</h1><p class="lead">Any service that speaks OpenAI's chat API works through <code>openaiCompatible()</code>, and presets exist for the ones Lodestone has been checked against. Here is exactly how far each check went.</p><div class="tablewrap"><table><thead><tr><th>Preset</th><th>Service</th><th>What was checked</th></tr></thead><tbody>${providers}</tbody></table></div><p class="cap">${esc(providersCap)}</p><p class="cap">Checking a provider yourself: <code>node scripts/live-check.mjs</code> in the repository calls each one once with keys from your environment and prints what happened, without printing a key.</p>` },
+  { path: 'model-lists', title: 'Model lists', desc: 'How Lodestone keeps a provider\'s model list alive, short and safe: models that are gone drop out, a pool of eight with three tried, and a trust policy checked by the library itself.', wide: true,
+    body: `<h1>Lists that keep themselves alive</h1><p class="lead">A model list that nobody edits goes stale; one that fills itself can grow until it is slow, or admit something you would not choose. Lodestone does the first and bounds the second.</p>
+<div class="three">
+<div class="card"><span class="tag">Alive</span><h3>Outdated models drop out</h3><p>A daily <code>checkModels()</code> saves each provider's catalogue. A model it no longer lists is dropped. One with an expiry date within a week is left out (OpenRouter publishes the date; 14 models carried one the day this was written). One failing right now is skipped by the breaker.</p></div>
+<div class="card"><span class="tag">Short</span><h3>A pool of 8, three tried</h3><p>The ranked pool lives in the background. Models that are down are filtered out, and a request tries at most three. When one fails, the next best takes its place for later requests, so adding models adds choice, not delay.</p></div>
+<div class="card"><span class="tag">Safe</span><h3>Trust is checked, not assumed</h3><p>A discovered model must come from a trusted lab. You can block labs or models, refuse any a provider says is trained on or keeps prompts too long, and mark a single call <code>private</code>.</p></div>
+</div>
+<div class="pool" aria-label="Example pool"><span class="down">gemma-4-26b (429)</span><span class="down">nemotron-lightning (hung)</span><span class="live">nemotron-ultra</span><span class="live">gemma-4-31b</span><span class="live">qwen3.5-flash</span><span>mistral-small</span><span>deepseek-v4</span><span>phi-5-mini</span></div>
+<p class="cap">Illustrative: a pool of eight. The two that are down are skipped; the next three live ones are tried.</p>
+<h2>What the trust policy decides</h2>
+<div class="tablewrap"><table><thead><tr><th>Model found by discovery</th><th>Default policy</th><th>Strict: no training, prompts kept ≤ 30 days</th></tr></thead><tbody>${vet}</tbody></table></div>
+<p class="cap">Verdicts are computed by the library's own <code>vet()</code> as this page is built, on rows shaped like real lists. On 28 Oct 2026, of Requesty's 807 chat models, 205 came from a lab not on the default list and 9 were marked as trained on. LLM API publishes nothing about what happens to prompts, so under a strict policy none of its models can be <em>discovered</em>; models you name yourself still work.</p>
+<p class="cap"><b>What this is not.</b> There is no vulnerability database for hosted AI models, so Lodestone does not claim to scan one. It checks what providers actually publish, and enforces your rules on it. Those facts are self-reported by providers. <a href="/security/">The security page</a> lists exactly what is and is not checked.</p>` },
   { path: 'code-map', title: 'Code map', desc: 'Where each piece of Lodestone lives in src/, generated from the repository.', wide: true,
     body: `<h1>Code map</h1><p class="lead">Where each piece lives in <code>src/</code>. This is generated from the files in the repository when the site is built. <b>+tests</b> marks a file with its own test file; the others are covered by a shared one or by the call-path tests.</p><div class="map">${filemap}</div>` },
   { path: 'where-it-runs', title: 'Where it runs', desc: 'Netlify, Cloudflare Workers, Base44, Vercel and Render: which run Lodestone in production, which are checked in CI, and which are not tested yet.', wide: true,
@@ -295,6 +308,7 @@ writeFileSync(join(out, 'llms.txt'), `# Lodestone
 - [README](${GH}README.md): the full reference for the TypeScript library
 - [Python port](${SITE}/docs/python/): the alpha Python package and what it lacks
 - [Providers](${SITE}/providers/): every fallback provider and how far each was checked
+- [Model lists](${SITE}/model-lists/): how a model list drops what is gone, stays short and admits only trusted models
 - [Where it runs](${SITE}/where-it-runs/): Netlify, Cloudflare Workers, Base44, Vercel and Render, and what has been verified on each
 - [Code map](${SITE}/code-map/): where each piece lives in src/
 
