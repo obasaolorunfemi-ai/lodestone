@@ -5,8 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Lodestone: reliable AI calls for serverless tools</title>
 <meta name="description" content="Reliable AI calls for tools, running serverless: failover across models and providers, spend limits and plain-language errors. MIT, no dependencies.">
-<meta name="theme-color" content="#fdfcf9" media="(prefers-color-scheme: light)">
-<meta name="theme-color" content="#12110e" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#faf9f5" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#141413" media="(prefers-color-scheme: dark)">
 <link rel="canonical" href="https://lodestone.extrafemi.com/">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://lodestone.extrafemi.com/">
@@ -21,8 +21,8 @@
 <meta name="robots" content="index,follow,max-image-preview:large">
 {{ld}}
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
-<link rel="preload" href="/fonts/cardo-400-latin.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="preload" href="/fonts/lora-400-latin.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="/fonts/newsreader-latin-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="/fonts/inter-latin-normal.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="/fonts/fonts.css">
 <link rel="stylesheet" href="/style.css?v={{v}}">
 <script src="/theme.js?v={{v}}"></script>
@@ -33,8 +33,6 @@
 <body>
 <a class="skip" href="#main">Skip to content</a>
 
-<div class="ticker tag" aria-hidden="true"><div class="ticker-track">{{ticker}}{{ticker}}</div></div>
-
 <header class="sitebar">
   {{sitebar}}
   <div class="progress" aria-hidden="true"><span id="progress"></span></div>
@@ -42,28 +40,37 @@
 
 <div id="main" tabindex="-1">
 <div class="cover col">
-  <div class="stage">
-    <div class="cover-main">
-      <h1>Lodestone</h1>
-      <p class="tagline">Reliable AI calls for tools, running serverless.</p>
-      <p class="lede">A small library (TypeScript, with an alpha Python port) that sits between your tool and AI models. When a model is withdrawn, slow, rate-limited or down, it moves to the next one, stays inside your time limit, spends only what you allow, and, if everything fails, tells the person what went wrong in plain words.</p>
-      <code class="install">npm install @extrafemi-ai/lodestone</code>
-      <div class="actions">
-        <a class="pill solid" href="#watch">Watch a bad day
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M6 13l6 6 6-6"/></svg></a>
-        <a class="pill" href="https://github.com/obasaolorunfemi-ai/lodestone">GitHub</a>
-        <a class="pill" href="https://www.npmjs.com/package/@extrafemi-ai/lodestone">npm</a>
+  <h1 class="statement"><strong>Reliable AI calls for tools, running serverless.</strong> Lodestone is a small library (TypeScript, with an alpha Python port) that sits between your tool and AI models. When a model is withdrawn, slow, rate-limited or down, it moves to the next one, stays inside your time limit, spends only what you allow, and, if everything fails, tells the person what went wrong in plain words.</h1>
+  <div class="actions">
+    <a class="pill solid" href="#watch">Watch a bad day
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M6 13l6 6 6-6"/></svg></a>
+    <code class="install">npm install @extrafemi-ai/lodestone</code>
+    <a class="pill" href="https://github.com/obasaolorunfemi-ai/lodestone">GitHub</a>
+    <a class="pill" href="https://www.npmjs.com/package/@extrafemi-ai/lodestone">npm</a>
+  </div>
+  <p class="tag facts"><span>v{{version}}</span><span>TypeScript</span><span>Python (alpha)</span><span>No dependencies</span><span>MIT</span><span>Node · Workers · Deno · Bun</span></p>
+  <div class="collage-panel">
+    <figure class="collage" aria-hidden="true">
+      <div class="stack">
+        <div class="tile olive"><svg width="150" height="150" viewBox="0 0 170 170"><circle cx="85" cy="85" r="70" fill="none" stroke="#faf9f5" stroke-width="2"/><circle cx="85" cy="85" r="48" fill="none" stroke="#faf9f5" stroke-width="2"/><circle cx="85" cy="85" r="26" fill="#faf9f5"/><path d="M85 15v140M15 85h140" stroke="#141413" stroke-width="2"/></svg></div>
+        <div class="tile clay"><div class="bars"><i></i><i></i><i></i><i></i></div></div>
       </div>
-      <p class="tag facts"><span>v{{version}}</span><span>TypeScript</span><span>Python (alpha)</span><span>No dependencies</span><span>MIT</span><span>Node · Workers · Deno · Bun</span></p>
-    </div>
-    <figure class="ghost" aria-hidden="true">
-      <svg viewBox="-34 0 368 300">
-        <circle class="ring" cx="150" cy="150" r="120"/><circle class="ring2" cx="150" cy="150" r="100"/>
-        <text x="150" y="22">FREE</text><text x="306" y="154">PAID</text><text x="150" y="288">FALLBACK</text><text x="-6" y="154">ROUTE</text>
-        <g class="needle"><polygon class="n1" points="150,60 160,150 140,150"/><polygon class="n2" points="150,240 160,150 140,150"/><circle class="hub" cx="150" cy="150" r="6"/></g>
-      </svg>
-      <figcaption class="tag">Always pointing at a model that works</figcaption>
+      <div class="tile kraft">
+        <svg class="compass" viewBox="0 0 300 300">
+          <circle cx="150" cy="150" r="140" fill="#faf9f5" stroke="#141413" stroke-width="2"/>
+          <circle cx="150" cy="150" r="116" fill="none" stroke="#141413"/>
+          <circle cx="150" cy="150" r="90" fill="none" stroke="#141413" stroke-dasharray="3 6"/>
+          <path d="M150 12v22M150 266v22M12 150h22M266 150h22" stroke="#141413" stroke-width="1.5"/>
+          <path d="M247 53l-14 14M53 247l14-14M53 53l14 14M247 247l-14-14" stroke="#141413"/>
+          <g class="needle"><polygon class="n1" points="150,44 171,150 129,150"/><polygon class="n2" points="150,256 171,150 129,150"/><circle class="hub" cx="150" cy="150" r="9"/></g>
+        </svg>
+      </div>
+      <div class="stack">
+        <div class="tile sky"><div class="bars"><i></i><i class="c"></i><i></i></div></div>
+        <div class="tile fig"><svg width="160" height="120" viewBox="0 0 170 130"><path d="M10 100c20-70 40-70 60 0s40 70 60 0 20-50 30-60" fill="none" stroke="#faf9f5" stroke-width="3" stroke-linecap="round"/><path d="M10 70c20-70 40-70 60 0s40 70 60 0 20-50 30-60" fill="none" stroke="#141413" stroke-width="3" stroke-linecap="round"/></svg></div>
+      </div>
     </figure>
+    <p class="tag collage-cap">Always pointing at a model that works</p>
   </div>
   <nav class="index" aria-label="Chapters">
     <a href="#problem"><h3>Six ways an AI call breaks</h3><p>And what Lodestone does about each.</p><div class="foot"><b>6</b><span class="tag">failure modes</span></div></a>

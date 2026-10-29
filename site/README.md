@@ -8,7 +8,7 @@ node site/build.mjs   # just the site, if dist/ is already built
 npx wrangler deploy   # publishes site/public to Cloudflare (see ../wrangler.jsonc)
 ```
 
-- `src/` is the source: `index.html` (with `{{placeholders}}`), `style.css`, `app.js`, `theme.js` and `fonts/` (Cardo and Lora, SIL OFL, copied from Naija Eval so the two sites match).
+- `src/` is the source: `index.html` (with `{{placeholders}}`), `style.css`, `app.js`, `theme.js` and `fonts/` (Newsreader and Inter, variable, SIL OFL, from the fontsource packages).
 - Same rules as Naija Eval: no inline scripts, a strict content-security policy (`src/_headers`). The one request the page makes is to KeyStone's public `/api/ai-weather`, for the free-model weather; the policy allows that origin and nothing else.
 - Claims about how far each provider has been checked are written by hand in `build.mjs` (`providers`). Update them when that changes.
 - Served at https://lodestone.extrafemi.com (the `routes` entry in `wrangler.jsonc`). The canonical URL and sitemap are written by the build.
