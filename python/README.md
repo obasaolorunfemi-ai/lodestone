@@ -57,10 +57,13 @@ Everything in the TypeScript library's [README](../README.md) about these, with 
 
 Be clear-eyed about these before you choose it over the TypeScript library.
 
-- **Provider model lists** other than OpenRouter's. Requesty's price, lab and data-policy fields, and `discover` (topping up a fallback's list), are TypeScript-only. For a `private` call that means a fallback is used only if you vouch for it.
-- **Images / vision**, **streaming**, **tool calling**, **scorecards**.
-- **True cancellation of a hung request.** A call that hangs is cut off at its slice and the next model is tried, but the thread making the request is only ended by its socket timeout (the slice plus a second), not killed.
-- It has been tested against a local HTTP server and fake providers, not yet against live providers.
+- **Model lists other than OpenRouter's.** The port can't read the other providers' model lists. So Requesty's price, lab and data-policy details, and `discover` (topping up a fallback's model list), are TypeScript-only. For a private call, a fallback is only used if you vouch for it.
+- **Cancelling a hung request.** A hung call is cut off at its time slice and the next model is tried, but the thread making the request is only ended by its socket timeout, not killed.
+
+## Disclaimers
+
+- **Images, streaming, tool calling and scorecards.** None of these exist in the Python port.
+- **Real-provider testing.** The port has been tested against a local HTTP server and fake providers, not against live ones. That is the main reason it is alpha.
 
 ## Stores
 
