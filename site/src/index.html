@@ -84,7 +84,7 @@
     <div class="card"><span class="tag">Global South startups</span><h3>Spend what you chose, no more</h3><p>Paid-first on your own key with free models as the backup, a daily and a monthly spend limit, and a customer's own key kept apart from yours. Models can also be ordered by measured quality in Hausa, Igbo and Yoruba, through <a href="https://naija-eval.extrafemi.com">Naija Eval</a>.</p></div>
     <div class="card"><span class="tag">Free public tools</span><h3>Fail in words a person can read</h3><p>When every model fails, <code>explain()</code> says what happened and what to do, in plain language, and tells a daily limit from a busy service from a missing credit. The person never sees a gateway error.</p></div>
   </div>
-  <p class="note"><b>Not for everyone.</b> If you need streaming, tool calling or embeddings, or you already run a platform team with a gateway, use that. Lodestone does not replace a gateway: services such as Requesty work inside it as fallback steps, so your tool keeps going when a whole gateway has a bad day. See <a href="#limits">what it does not do yet</a>.</p>
+  <p class="note"><b>Not for everyone.</b> If you need streaming, tool calling or embeddings, or you already run a platform team with a gateway, use that. Lodestone does not replace a gateway: services such as Requesty work inside it as fallback steps, so your tool keeps going when a whole gateway has a bad day. See <a href="/limits/">what it does not do yet</a>.</p>
 </section>
 
 <section id="problem" aria-labelledby="problem-h">
@@ -235,19 +235,6 @@ try {
   </div>
 </section>
 
-<section id="limits" aria-labelledby="limits-h">
-  <div class="divider"><span class="tag">Honest limits</span><span class="tag">Not yet</span></div>
-  <div class="head">
-    <h2 id="limits-h">What it does not do yet</h2>
-    <p>Lodestone is for one-shot text and JSON calls today. These are the gaps, stated plainly.</p>
-  </div>
-  <div class="three rise">
-    <div class="card"><h3>Streaming</h3><p><code>complete()</code> and <code>json()</code> wait for the whole answer. Streaming needs a rule for a model that fails halfway; the likely one is to fail over only before the first token.</p></div>
-    <div class="card"><h3>Tool calling, embeddings, speech</h3><p>Lodestone is for one-shot text and JSON calls today. It does not let a model call functions, and it has no tier for embeddings or speech.</p></div>
-    <div class="card"><h3>The Python port is alpha</h3><p>It can't read provider model lists other than OpenRouter's, so Requesty's price, lab and data-policy details and <code>discover</code> are TypeScript-only, and a private call uses a fallback only if you vouch for it. A hung request is cut off at its slice and the next model is tried, but its thread only ends at its socket timeout. Images, streaming, tool calling and scorecards do not exist in Python. It has been tested against a local HTTP server and fake providers, and has made live calls to Groq and OpenRouter, which both answered; Requesty was refused for lack of credit and no other provider has been tried live from Python, which is the main reason it is alpha. <a href="/docs/python/">Details</a>.</p></div>
-  </div>
-</section>
-
 </main>
 </div>
 
@@ -287,6 +274,7 @@ try {
         <li><a href="/providers/">Providers</a></li>
         <li><a href="/model-lists/">Model lists</a></li>
         <li><a href="/when-everything-fails/">When everything fails</a></li>
+        <li><a href="/limits/">Honest limits</a></li>
         <li><a href="/where-it-runs/">Where it runs</a></li>
         <li><a href="/code-map/">Code map</a></li>
         <li><a href="/docs/">Docs</a></li>
