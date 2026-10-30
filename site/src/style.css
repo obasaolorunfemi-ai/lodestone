@@ -652,3 +652,6 @@ a.card.go:hover h3 { color: var(--ox); }
 .tile.sky .bars i:nth-child(1) { width: 46%; } .tile.sky .bars i:nth-child(2) { width: 70%; } .tile.sky .bars i:nth-child(3) { width: 34%; }
 
 button, select, input, textarea { font-family: inherit; }
+
+.foot-labs { margin-top: 10px; font-size: .9rem; color: var(--ink-2); }
+.foot-labs a { font-weight: 600; }

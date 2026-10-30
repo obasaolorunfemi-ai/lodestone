@@ -105,15 +105,15 @@ const badge = (slug, style, w, h, alt) => `<img class="b-light" src="${DOWN}/bad
 const STATUS_ALT = 'Lodestone status, monitored by Down in Nigeria';
 /** The footer, the same on every page: the status badge, the brand, and four columns (Learn, Proof, Reference, Project) read from the same list as the menu, so a new page cannot be left out of either. */
 const footHtml = (home) => {
-  const col = ([title, keys]) => `<nav aria-label="${title}"><h3>${title}</h3><ul>${keys.map((k) => { const [h, t] = PAGES[k]; return `<li><a href="${h}">${t}</a></li>`; }).join('')}${title === 'Project' ? '<li><a href="https://naija-eval.extrafemi.com/">Naija Eval</a></li><li><a href="https://keystone.extrafemi.com/">KeyStone</a></li>' : ''}</ul></nav>`;
+  const col = ([title, keys]) => `<nav aria-label="${title}"><h3>${title}</h3><ul>${keys.map((k) => { const [h, t] = PAGES[k]; return `<li><a href="${h}">${t}</a></li>`; }).join('')}${title === 'Project' ? '<li><a href="https://labs.extrafemi.com/">Extrafemi Labs</a></li><li><a href="https://naija-eval.extrafemi.com/">Naija Eval</a></li><li><a href="https://keystone.extrafemi.com/">KeyStone</a></li>' : ''}</ul></nav>`;
   return `<footer class="site-foot">${statusBlock}
   <div class="col foot-cols">
-    <div><div class="mark">Lodestone</div><p>A small library that keeps AI calls working when a model is withdrawn, slow, rate-limited or down.</p><p class="foot-home"><a href="${home ? '#for' : '/'}">${home ? 'Back to the top of the walkthrough' : 'The walkthrough on the home page'}</a></p></div>
+    <div><div class="mark">Lodestone</div><p>A small library that keeps AI calls working when a model is withdrawn, slow, rate-limited or down.</p><p class="foot-labs">Lodestone is an <a href="https://labs.extrafemi.com/">Extrafemi Labs</a> build.</p><p class="foot-home"><a href="${home ? '#for' : '/'}">${home ? 'Back to the top of the walkthrough' : 'The walkthrough on the home page'}</a></p></div>
     ${FOOT_GROUPS.map(col).join('\n    ')}
   </div>
   <div class="col foot-base">
     <p>Lodestone ${pkg.version} · built from commit ${commit} on ${date} · MIT licence. Newsreader and Inter are set in the SIL Open Font Licence and are served from this site.</p>
-    <p>© 2026 Extrafemi · No cookies, no tracking. Your light or dark choice is kept in your browser, nowhere else.</p>
+    <p>© 2026 Extrafemi Labs · No cookies, no tracking. Your light or dark choice is kept in your browser, nowhere else.</p>
   </div>
 </footer>`;
 };
