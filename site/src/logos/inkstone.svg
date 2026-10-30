@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <!-- Inkstone mark — a drop meeting the pool. Adapts to the OS theme:
+       black tile / light pool in dark mode, paper tile / grey pool in light mode.
+       The ink-blue drop is constant. -->
+  <style>
+    .tile { fill: #0b0b0c; }
+    .pool { fill: #3c3c37; }
+    @media (prefers-color-scheme: light) {
+      .tile { fill: #f2f2ec; }
+      .pool { fill: #cfcfc7; }
+    }
+  </style>
+  <rect class="tile" width="32" height="32"/>
+  <ellipse class="pool" cx="16" cy="23" rx="8.4" ry="2.7"/>
+  <ellipse cx="16" cy="22.8" rx="4.6" ry="1.7" fill="#2333e6"/>
+  <path d="M16 4.2c3.5 5.1 5.2 8.6 5.2 10.9a5.2 5.2 0 0 1-10.4 0c0-2.3 1.7-5.8 5.2-10.9Z" fill="#2333e6"/>
+</svg>
