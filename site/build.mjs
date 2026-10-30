@@ -321,7 +321,7 @@ const SEO_TITLE = {
   'getting-smarter': 'Getting smarter: scorecards choose the model order · Lodestone',
   'using-it': 'Using Lodestone: one setup, task-named AI calls',
   'where-it-runs': 'Where Lodestone runs: Netlify, Workers, Vercel, Render',
-  'runs-on-lodestone': 'Tools that run on Lodestone: KeyStone, TouchStone',
+  'runs-on-lodestone': 'Tools that run on Lodestone: KeyStone, TouchStone, Inkstone',
   'code-map': 'Lodestone code map: where each piece lives',
 };
 const page = ({ path, title, desc, body, crumbs = true, wide = false, scripts = '', side = '', stacked = false }) => `<!doctype html>

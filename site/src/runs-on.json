@@ -15,6 +15,13 @@
     "description": "The governance layer for AI builders: describe a product, paste code or point it at a URL and get a structured audit across eight domains. Its model calls run through Lodestone: choosing and replacing models, time limits, fallbacks to other providers, spend limits and plain-language failures."
   },
   {
+    "name": "Inkstone",
+    "url": "https://inkstone.extrafemi.com/",
+    "kind": "runs",
+    "logo": "inkstone.svg",
+    "description": "Brand-voice writing, sourced by default: it writes in a company's voice, won't put a figure in a draft it can't attribute to a named source, and a person signs off before anything ships. Its model calls run through Lodestone. The first call in each cold serverless function waits for the current model catalogue (about 0.4 s), so a model OpenRouter has withdrawn is dropped before it is tried, instead of costing one of the three free attempts."
+  },
+  {
     "name": "Naija Eval",
     "url": "https://naija-eval.extrafemi.com/",
     "kind": "feeds",
