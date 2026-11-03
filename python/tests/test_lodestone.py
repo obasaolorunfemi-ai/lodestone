@@ -87,6 +87,29 @@ class Failover(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(r.model, "b")
 
 
+class AnthropicAdapter(unittest.IsolatedAsyncioTestCase):
+    async def _sent(self, adapter, temperature):
+        from lodestone import ProviderRequest
+        seen = {}
+        def fake_post(url, headers, body, timeout_s):
+            seen.update(url=url, headers=headers, body=body)
+            return {"content": [{"type": "text", "text": "ok"}], "usage": {"input_tokens": 1, "output_tokens": 1}}
+        with mock.patch("lodestone.providers._post", fake_post):
+            await adapter.call(ProviderRequest(model="m", messages=[{"role": "user", "content": "x"}], max_tokens=50, api_key="k", temperature=temperature))
+        return seen
+
+    async def test_the_temperature_is_left_out_because_current_claude_models_reject_it(self):
+        from lodestone import Anthropic
+        seen = await self._sent(Anthropic(), 0.2)
+        self.assertNotIn("temperature", seen["body"])
+        self.assertEqual(seen["body"]["max_tokens"], 50)
+
+    async def test_it_is_sent_only_when_asked_for_an_older_model(self):
+        from lodestone import Anthropic
+        self.assertEqual((await self._sent(Anthropic(send_temperature=True), 0.2))["body"]["temperature"], 0.2)
+        self.assertNotIn("temperature", (await self._sent(Anthropic(send_temperature=True), None))["body"])
+
+
 class Catalogue(unittest.IsolatedAsyncioTestCase):
     async def test_a_withdrawn_model_is_replaced_from_the_live_catalogue(self):
         live = [{"id": "google/gemma-9-27b:free", "context_length": 100000}, {"id": "google/kept:free", "context_length": 100000}]

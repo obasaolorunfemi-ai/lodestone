@@ -47,6 +47,20 @@ describe('anthropic adapter', () => {
     expect(seen.body).not.toHaveProperty('temperature');
     expect(r).toEqual({ text: 'hello there', usage: { inputTokens: 7, outputTokens: 3 } });
   });
+  it('leaves the temperature out even when the call has one, because current Claude models reject it', async () => {
+    const { seen, f } = capture({ content: [{ type: 'text', text: 'ok' }] });
+    await anthropic({ fetch: f }).call({ ...base, temperature: 0.2, messages: [{ role: 'user', content: 'x' }] });
+    expect(seen.body).not.toHaveProperty('temperature');
+    expect(seen.body.max_tokens).toBe(100);
+  });
+  it('sends the temperature only when asked to, for an older model that still accepts one', async () => {
+    const { seen, f } = capture({ content: [{ type: 'text', text: 'ok' }] });
+    await anthropic({ fetch: f, sendTemperature: true }).call({ ...base, temperature: 0.2, messages: [{ role: 'user', content: 'x' }] });
+    expect(seen.body.temperature).toBe(0.2);
+    const none = capture({ content: [{ type: 'text', text: 'ok' }] });
+    await anthropic({ fetch: none.f, sendTemperature: true }).call({ ...base, messages: [{ role: 'user', content: 'x' }] });
+    expect(none.seen.body).not.toHaveProperty('temperature');   // nothing is invented when the call set none
+  });
   it('rejects an image that is not a base64 data URL before calling', async () => {
     const { f } = capture({});
     await expect(anthropic({ fetch: f }).call({ ...base, messages: [{ role: 'user', content: [{ type: 'image', dataUrl: 'https://x/y.png' }] }] })).rejects.toBeInstanceOf(ProviderError);

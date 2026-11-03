@@ -59,8 +59,8 @@ Tiers are for tools that don't care which model answers. A tool that picks its o
 await ai.complete({
   system, messages, maxTokens: 900,
   route: [
-    { provider: 'anthropic', model: 'claude-sonnet-4-5', apiKey: customerKey },
-    { provider: 'openrouter', model: 'anthropic/claude-sonnet-4-5', apiKey: backupKey },
+    { provider: 'anthropic', model: 'claude-sonnet-5-5', apiKey: customerKey },
+    { provider: 'openrouter', model: 'anthropic/claude-sonnet-5.5', apiKey: backupKey },
   ],
 });
 ```
@@ -146,7 +146,7 @@ OpenRouter is the default, but one provider's outage should not stop your tool. 
 | `omniakey()` | [OmniaKey](https://omniakey.com) | A prepaid gateway for text, image, video and music models, with an OpenAI-compatible text endpoint. Text and JSON calls only here. Its model list needs a key and mixes chat with image, video and music models, so name your models. Not yet called live: the account's first chat call was refused for insufficient quota. |
 | `openai()`, `mistral()`, `together()` | the providers themselves | |
 | `ollama()` | a local server | Free and private. |
-| `anthropic()`, `google()` | direct | Not OpenAI-style, so they have their own adapters. |
+| `anthropic()`, `google()` | direct | Not OpenAI-style, so they have their own adapters. `anthropic()` leaves the temperature out, because Anthropic's current models reject one (Claude 4.7 and later answer 400 to a non-default value, and API version 2026-10-21 removes it); pass `anthropic({ sendTemperature: true })` for an older model that still accepts one. Model ids are retired on a schedule (`claude-sonnet-4-20250514` was retired on 15 June 2026): check [Anthropic's deprecations page](https://platform.claude.com/docs/en/about-claude/model-deprecations), and keep a second model or provider in the chain, so a retired id costs one attempt, not the call. |
 
 ```ts
 fallbacks: [

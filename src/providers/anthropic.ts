@@ -1,7 +1,11 @@
 import { ProviderError } from '../errors.js';
 import type { ContentPart, Message, Provider } from '../types.js';
 
-export interface AnthropicOptions { fetch?: typeof fetch }
+export interface AnthropicOptions {
+  fetch?: typeof fetch;
+  /** Send the request's temperature. Default false. Anthropic's current models reject a temperature: Claude 4.7 and later answer 400 to a non-default one, and API version 2026-10-21 removes the parameter for every model. Lodestone's calls default to 0.2, so by default it is left out and the model's own setting applies. Turn this on only for an older model that still accepts one. */
+  sendTemperature?: boolean;
+}
 
 const IMAGE = /^data:(image\/(?:jpeg|png|gif|webp));base64,(.+)$/s;
 
@@ -26,7 +30,7 @@ export function anthropic(opts: AnthropicOptions = {}): Provider {
         body: JSON.stringify({
           model: req.model,
           max_tokens: req.maxTokens,
-          ...(req.temperature === undefined ? {} : { temperature: req.temperature }),
+          ...(opts.sendTemperature && req.temperature !== undefined ? { temperature: req.temperature } : {}),
           ...(req.system ? { system: req.system } : {}),
           messages: req.messages.map(wire),
         }),

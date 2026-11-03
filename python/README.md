@@ -51,6 +51,7 @@ Everything in the TypeScript library's [README](../README.md) about these, with 
 - `SpendLimit`: a daily and monthly limit that takes a hold per paid attempt.
 - `RateLimiter` and `caller=`: each caller has their own allowance. Only a hash of the caller is stored.
 - `private=True`: OpenRouter is told to use only providers that do not keep or train on the prompt; a fallback is used only if you vouch for it with `privacy="no-training"`; the answer is never cached.
+- `Anthropic()` leaves the temperature out, because Anthropic's current models reject one; `Anthropic(send_temperature=True)` sends it for an older model.
 - `cache_key=`: tied to a fingerprint of the input, so a key that is too coarse is a miss, never another input's answer.
 
 ## What is not in the Python port yet

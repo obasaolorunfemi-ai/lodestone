@@ -90,11 +90,20 @@ class OpenRouter(OpenAICompatible):
 
 
 class Anthropic:
+    """Anthropic's own API.
+
+    ``send_temperature`` defaults to False. Anthropic's current models reject a temperature: Claude 4.7 and later answer 400 to a non-default
+    one, and API version 2026-10-21 removes the parameter for every model. Lodestone's calls default to 0.2, so it is left out and the model's own
+    setting applies. Turn it on only for an older model that still accepts one."""
+
     name, vision = "anthropic", False
+
+    def __init__(self, send_temperature: bool = False) -> None:
+        self.send_temperature = send_temperature
 
     async def call(self, req: ProviderRequest) -> ProviderReply:
         body: dict[str, Any] = {"model": req.model, "max_tokens": req.max_tokens, "messages": req.messages}
-        if req.temperature is not None:
+        if self.send_temperature and req.temperature is not None:
             body["temperature"] = req.temperature
         if req.system:
             body["system"] = req.system
