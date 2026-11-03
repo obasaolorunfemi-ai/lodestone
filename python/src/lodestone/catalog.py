@@ -84,8 +84,8 @@ def _fetch_openrouter() -> Optional[list[dict]]:
 
 
 class Catalog:
-    def __init__(self, store: Any, now: Callable[[], float] = time.time, fetch: Callable[[], Optional[list[dict]]] = _fetch_openrouter) -> None:
-        self._store, self._now, self._fetch = store, now, fetch
+    def __init__(self, store: Any, now: Callable[[], float] = time.time, fetch: Callable[[], Optional[list[dict]]] = _fetch_openrouter, key: str = _SAVED_KEY) -> None:
+        self._store, self._now, self._fetch, self._key = store, now, fetch, key
         self._memory: Optional[tuple[float, list[dict]]] = None
         self._last_kick = float("-inf")
         self._tasks: set[asyncio.Task] = set()
@@ -98,7 +98,7 @@ class Catalog:
         if not models:
             return None
         try:
-            await self._store.set(_SAVED_KEY, {"at": self._now(), "models": models})
+            await self._store.set(self._key, {"at": self._now(), "models": models})
         except Exception:
             pass
         self._memory = (self._now(), models)
@@ -114,7 +114,7 @@ class Catalog:
         if self._memory and self._now() - self._memory[0] < MEMORY_S:
             return self._memory[1]
         try:
-            saved = clean_saved(await self._store.get(_SAVED_KEY))
+            saved = clean_saved(await self._store.get(self._key))
             if saved:
                 self._memory = (self._now(), saved["models"])
                 if self._now() - saved["at"] > STALE_S:

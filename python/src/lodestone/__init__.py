@@ -1,13 +1,14 @@
 """Lodestone: reliable AI calls on a shoestring budget. Failover, a time budget, spend limits and plain-language errors; no dependencies."""
 from .catalog import ROUTER, pick_models
-from .client import (DEFAULT_MODELS, DEFAULT_PAID_MODELS, AttemptEvent, Fallback, Lodestone, OpenRouterConfig, Profile, Result, RouteStep, Timing,
+from .client import (DEFAULT_MODELS, DEFAULT_PAID_MODELS, AttemptEvent, Discover, Fallback, Lodestone, OpenRouterConfig, Profile, Result, RouteStep, Timing,
                      try_parse_json)
+from .discover import Healed, heal_provider_models
 from .errors import FAILURE_KINDS, LodestoneError, ProviderError
 from .explain import explain
 from .health import Health
 from .limiter import RateLimiter, RateLimitResult
-from .providers import (Anthropic, Mock, OpenAICompatible, OpenRouter, ProviderReply, ProviderRequest, cerebras, omniakey, groq, llmapi, mistral, ollama,
-                        openai, requesty)
+from .providers import (Anthropic, Mock, OpenAICompatible, OpenRouter, ProviderReply, ProviderRequest, cerebras, omniakey, groq, llmapi, mistral, normalize_anthropic,
+                        ollama, openai, requesty)
 from .ratelimit_reading import RateLimitReading, read_rate_limit
 from .spend import SpendInfo, SpendLimit
 from .stores import MemoryStore, UpstashStore
@@ -21,5 +22,5 @@ __all__ = [
     "Profile", "Result", "RouteStep", "Timing", "try_parse_json", "FAILURE_KINDS", "LodestoneError", "ProviderError", "explain", "Health", "RateLimiter",
     "RateLimitResult", "Anthropic", "Mock", "OpenAICompatible", "OpenRouter", "ProviderReply", "ProviderRequest", "cerebras", "omniakey", "groq", "llmapi", "mistral",
     "ollama", "openai", "requesty", "RateLimitReading", "read_rate_limit", "SpendInfo", "SpendLimit", "MemoryStore", "UpstashStore", "DEFAULT_PUBLISHERS",
-    "TrustPolicy", "vet",
+    "TrustPolicy", "vet", "Discover", "Healed", "heal_provider_models", "normalize_anthropic",
 ]

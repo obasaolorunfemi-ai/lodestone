@@ -6,8 +6,8 @@ import unittest
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from unittest import mock
 
-from lodestone import (Fallback, Health, Lodestone, LodestoneError, MemoryStore, Mock, OpenAICompatible, OpenRouterConfig, ProviderError, ProviderReply,
-                       RateLimiter, SpendInfo, SpendLimit, Timing, TrustPolicy, UpstashStore, explain, pick_models, read_rate_limit, try_parse_json, vet)
+from lodestone import (Discover, Fallback, Health, Lodestone, LodestoneError, MemoryStore, Mock, OpenAICompatible, OpenRouterConfig, ProviderError, ProviderReply,
+                       RateLimiter, SpendInfo, SpendLimit, Timing, TrustPolicy, UpstashStore, explain, heal_provider_models, normalize_anthropic, pick_models, read_rate_limit, try_parse_json, vet)
 
 FREE = ["free-a:free", "free-b:free", "openrouter/free"]
 MODELS = {"fast": FREE, "strong": FREE}
@@ -400,3 +400,95 @@ class RealHttp(unittest.IsolatedAsyncioTestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+def claude(mid, line, created, **kw):
+    return {"id": mid, "publisher": "anthropic", "line": line, "created_at": created, "lifecycle": "active",
+            "architecture": {"input_modalities": ["text", "image"], "output_modalities": ["text"]}, **kw}
+
+
+NOW_MS = 1793707200000.0  # 2026-11-03T12:00:00Z
+CLAUDES = [
+    claude("claude-sonnet-4-20250514", "sonnet", "2025-05-14T00:00:00Z", lifecycle="retired"),
+    claude("claude-sonnet-4-5-20250929", "sonnet", "2025-09-29T00:00:00Z", lifecycle="deprecated", expiration_date="2026-11-30T00:00:00Z"),
+    claude("claude-sonnet-5-5", "sonnet", "2026-09-21T00:00:00Z"),
+    claude("claude-sonnet-5-4", "sonnet", "2026-06-01T00:00:00Z"),
+    claude("claude-opus-5-5", "opus", "2026-09-21T00:00:00Z"),
+]
+
+
+class AnthropicHealing(unittest.IsolatedAsyncioTestCase):
+    def test_a_row_becomes_a_catalogue_entry(self):
+        row = {"id": "claude-sonnet-5-5", "lifecycle": "deprecated", "line": "sonnet", "created_at": "2026-09-21T00:00:00Z", "retires_at": "2026-11-30T00:00:00Z",
+               "max_input_tokens": 1000000, "capabilities": {"image_input": {"supported": True}}}
+        self.assertEqual(normalize_anthropic(row), {"id": "claude-sonnet-5-5", "publisher": "anthropic", "context_length": 1000000, "lifecycle": "deprecated", "line": "sonnet",
+                                                    "created_at": "2026-09-21T00:00:00Z", "expiration_date": "2026-11-30T00:00:00Z",
+                                                    "architecture": {"input_modalities": ["text", "image"], "output_modalities": ["text"]}})
+        self.assertNotIn("expiration_date", normalize_anthropic({**row, "lifecycle": "retired"}))
+        self.assertIsNone(normalize_anthropic({"nope": 1}))
+
+    def test_a_retired_model_is_dropped_and_by_default_not_replaced(self):
+        h = heal_provider_models(["claude-sonnet-4-20250514", "claude-opus-5-5"], CLAUDES, now_ms=NOW_MS)
+        self.assertEqual((h.models, h.replaced), (["claude-opus-5-5"], []))
+
+    def test_with_replace_retired_the_newest_model_of_the_same_line_takes_its_place_and_is_reported(self):
+        h = heal_provider_models(["claude-sonnet-4-20250514"], CLAUDES, replace_retired=True, now_ms=NOW_MS)
+        self.assertEqual(h.models, ["claude-sonnet-5-5"])
+        self.assertEqual(h.replaced, [{"from": "claude-sonnet-4-20250514", "to": "claude-sonnet-5-5", "reason": "retired"}])
+
+    def test_it_never_crosses_lines_never_picks_a_deprecated_model_or_one_already_named(self):
+        h = heal_provider_models(["claude-sonnet-4-20250514", "claude-sonnet-5-5"], CLAUDES, replace_retired=True, now_ms=NOW_MS)
+        self.assertEqual(h.models, ["claude-sonnet-5-4", "claude-sonnet-5-5"])
+
+    def test_a_model_about_to_retire_counts_as_gone(self):
+        h = heal_provider_models(["claude-sonnet-4-5-20250929"], CLAUDES, replace_retired=True, now_ms=NOW_MS + 27 * 86_400_000)
+        self.assertEqual(h.replaced[0]["reason"], "expiring")
+
+    def test_it_says_so_when_it_cannot_place_a_model(self):
+        h = heal_provider_models(["claude-sonnet-3-7"], CLAUDES, replace_retired=True, now_ms=NOW_MS)
+        self.assertEqual((h.models, h.unreplaced[0]["note"]), ([], "no longer listed, so its line is unknown"))
+        lone = [claude("claude-haiku-3", "haiku", "2024-03-01T00:00:00Z", lifecycle="retired")]
+        self.assertEqual(heal_provider_models(["claude-haiku-3"], lone, replace_retired=True, now_ms=NOW_MS).unreplaced[0]["note"], "no current haiku model to take its place")
+
+    def test_for_the_vision_tier_only_a_model_that_reads_images_takes_the_place(self):
+        no_img = [{**m, "architecture": {"input_modalities": ["text"], "output_modalities": ["text"]}} if m["id"] == "claude-sonnet-5-5" else m for m in CLAUDES]
+        h = heal_provider_models(["claude-sonnet-4-20250514"], no_img, tier="vision", replace_retired=True, now_ms=NOW_MS)
+        self.assertEqual(h.models, ["claude-sonnet-5-4"])
+
+    async def _run(self, discover):
+        p = Mock("hello")
+        p.list_models = lambda key: CLAUDES
+        ai = Lodestone(openrouter=OpenRouterConfig(api_key="k", models=MODELS, provider=Mock(lambda r: fail(503))), timing=QUICK, fetch_catalog=lambda: None,
+                       fallbacks=[Fallback(provider=p, api_key="a", models=["claude-sonnet-4-20250514"], discover=discover)])
+        report = await ai.check_providers()
+        try:
+            r = await ai.complete("hi")
+        except LodestoneError:
+            r = None
+        return report, r, p
+
+    async def test_end_to_end_a_call_goes_to_the_current_model_and_the_check_reports_the_swap(self):
+        report, r, p = await self._run(Discover(replace_retired=True))
+        self.assertEqual(report["mock"]["replaced"], [{"from": "claude-sonnet-4-20250514", "to": "claude-sonnet-5-5", "reason": "retired"}])
+        self.assertEqual(r.model, "claude-sonnet-5-5")
+        self.assertEqual([c.model for c in p.calls], ["claude-sonnet-5-5"])
+
+    async def test_without_it_the_retired_model_is_not_asked_for(self):
+        report, r, p = await self._run(None)
+        self.assertNotIn("replaced", report["mock"])
+        self.assertEqual(p.calls, [])
+
+    def test_list_models_reads_the_live_list_then_the_retired_ones(self):
+        import io
+        urls = []
+
+        def fake(req, timeout=0):
+            urls.append(req.full_url)
+            rows = [{"id": "claude-sonnet-4-20250514", "lifecycle": "retired", "line": "sonnet"}] if "lifecycle=retired" in req.full_url else [{"id": "claude-sonnet-5-5", "lifecycle": "active", "line": "sonnet"}]
+            return io.BytesIO(json.dumps({"data": rows, "has_more": False}).encode())
+
+        from lodestone import Anthropic
+        with mock.patch("urllib.request.urlopen", fake):
+            models = Anthropic().list_models("secret")
+        self.assertEqual([(m["id"], m["lifecycle"]) for m in models], [("claude-sonnet-5-5", "active"), ("claude-sonnet-4-20250514", "retired")])
+        self.assertIn("limit=1000", urls[0])

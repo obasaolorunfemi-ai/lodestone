@@ -146,7 +146,7 @@ OpenRouter is the default, but one provider's outage should not stop your tool. 
 | `omniakey()` | [OmniaKey](https://omniakey.com) | A prepaid gateway for text, image, video and music models, with an OpenAI-compatible text endpoint. Text and JSON calls only here. Its model list needs a key and mixes chat with image, video and music models, so name your models. Not yet called live: the account's first chat call was refused for insufficient quota. |
 | `openai()`, `mistral()`, `together()` | the providers themselves | |
 | `ollama()` | a local server | Free and private. |
-| `anthropic()`, `google()` | direct | Not OpenAI-style, so they have their own adapters. `anthropic()` leaves the temperature out, because Anthropic's current models reject one (Claude 4.7 and later answer 400 to a non-default value, and API version 2026-10-21 removes it); pass `anthropic({ sendTemperature: true })` for an older model that still accepts one. Model ids are retired on a schedule (`claude-sonnet-4-20250514` was retired on 15 June 2026): check [Anthropic's deprecations page](https://platform.claude.com/docs/en/about-claude/model-deprecations), and keep a second model or provider in the chain, so a retired id costs one attempt, not the call. |
+| `anthropic()`, `google()` | direct | Not OpenAI-style, so they have their own adapters. `anthropic()` leaves the temperature out, because Anthropic's current models reject one (Claude 4.7 and later answer 400 to a non-default value, and API version 2026-10-21 removes it); pass `anthropic({ sendTemperature: true })` for an older model that still accepts one. Model ids are retired on a schedule (`claude-sonnet-4-20250514` was retired on 15 June 2026). `anthropic()` reads Anthropic's own model list, so a retired id is dropped from the chain and one with a retirement date within a week is left out; see [Anthropic self-healing](#anthropic-self-healing). Keep a second model or provider in the chain as well, so a retired id costs one attempt, not the call. |
 
 ```ts
 fallbacks: [
@@ -161,6 +161,21 @@ Model ids are each service's own. See [examples/multi-provider.ts](examples/mult
 
 - **Outdated or shut down.** The daily `checkModels()` saves each provider's current catalogue. A model the provider no longer lists is dropped; one with an expiry date within a week (OpenRouter publishes it) is left out; one that is failing right now is skipped by the circuit breaker. Nobody edits a list.
 - **New models.** `discover: { fill }` tops a short list up from the provider's own catalogue with models within a price limit ("free" is a limit of zero) from trusted labs. For OpenRouter's free models this happens by itself.
+
+#### Anthropic self-healing
+
+```ts
+fallbacks: [{ provider: anthropic(), apiKey: process.env.ANTHROPIC_API_KEY!, models: ['claude-sonnet-4-20250514'], discover: { replaceRetired: true } }]
+```
+
+Anthropic publishes where each model is in its life (`active`, `deprecated`, `retired`), when it retires, and which line it belongs to (`haiku`, `sonnet`, `opus`...). Lodestone reads that list the way it reads OpenRouter's:
+
+- **By default** a retired id, or one that retires within a week, is dropped from the chain, so a call no longer wastes an attempt on a model that answers 404. Nothing replaces it.
+- **With `discover: { replaceRetired: true }`** a named model that has gone is swapped for the newest *active* model of the **same line**, in the same place in the list. It never crosses lines (a Sonnet is never swapped for an Opus), never picks a deprecated model or one you already named, only picks a model your `trust` policy accepts, and for image calls only one that reads images. If the line has nothing current, or Anthropic no longer lists the id at all (so its line is unknown), nothing is swapped.
+- **Never silent.** `checkModels()` returns, under `providers.anthropic`, `replaced: [{ from, to, reason }]` and `unreplaced: [{ id, reason, note }]`; every answer says which model produced it. Treat a `replaced` entry as a prompt to update your list.
+- **Why it is opt-in.** A replacement can cost more, answer differently, or need other settings, and Anthropic's list has no prices, so the spend limit cannot estimate what a swapped-in model costs. Switch it on when staying up matters more than staying identical.
+
+What has been checked: the logic is tested on fake responses, and the field names follow Anthropic's Models API reference. No call to the real endpoint has been made, and the documentation's own example is inconsistent about the auth header and API version (Lodestone sends `x-api-key` and `2023-06-01`, as for messages). If the list cannot be read, the models you named are used as they are.
 - **Not a longer wait.** Discovery never lengthens what a request walks. A background pool (up to 8 per tier) is ranked, the models that are down are filtered out, and a request tries at most three. When one fails, the next best takes its place for later requests, so adding models adds choice, not delay.
 - **Safe by default.** A discovered model is used only if its publisher is on the trust list; `trust` also takes a block list, refuses models a provider says are trained on or that keep prompts too long, and `private: true` applies the same to one call (see below). There is no vulnerability database for hosted models, so none is claimed: see [SECURITY.md](SECURITY.md) for exactly what is and is not checked.
 
