@@ -2,11 +2,9 @@
 
 Versions before 1.0 may change between minor releases; each change that could break a caller is marked **breaking**.
 
-## Unreleased
+## 0.7.1
 
 - **`omniakey()` preset** (TypeScript and Python) for [OmniaKey](https://omniakey.com), a prepaid gateway with an OpenAI-compatible text endpoint. Use it as a `fallbacks` entry. It is a preset only: a key was accepted and its model list read (98 entries, with image, video and music models mixed in and nothing to tell them apart, so name your models and do not use `discover` with it), but the first chat call was refused with `insufficient_user_quota`, so it has not been seen to answer, and the Providers page says so. Text and JSON calls only; OmniaKey's image, video and music models are outside what Lodestone does.
-
-## Unreleased
 
 - **Fixed: the direct Anthropic adapter no longer sends a temperature.** Anthropic's current models reject one: Claude 4.7 and later answer 400 to a non-default value, and API version 2026-10-21 removes the parameter for every model. Lodestone's calls default to 0.2, so a direct call to a current Claude model would have failed. `anthropic()` now leaves it out and the model's own setting applies; `anthropic({ sendTemperature: true })` restores it for an older model. The Python port's `Anthropic(send_temperature=...)` works the same way. Calls through OpenRouter are unaffected. This was found by reading Anthropic's deprecations page, not from a failure: no live call to Anthropic has been made.
 - README: the route example used `claude-sonnet-4-5`, which Anthropic has deprecated; it now uses `claude-sonnet-5-5`.
