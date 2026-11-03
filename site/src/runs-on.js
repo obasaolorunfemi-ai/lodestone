@@ -23,6 +23,34 @@ function stat(label, value) {
   return wrap;
 }
 
+/** The same facts for a table cell: the rate, what it is out of, a bar, and where to read more. */
+function renderCompact(box, w, { tries, answered, rate, days, models }) {
+  const withTimes = models.filter((m) => Number.isFinite(Number(m.medianMs)));
+  const top = el('p', 'live-rate');
+  top.append(el('span', 'num', `${Math.round(rate * 10) / 10}%`), el('span', 'of', ` ${answered} of ${tries} answered`));
+  if (tries < SMALL_SAMPLE) top.append(el('span', 'live-badge', 'Small sample'));
+  const bar = el('div', 'live-bar');
+  bar.setAttribute('role', 'img');
+  bar.setAttribute('aria-label', `${Math.round(rate)} percent of attempts answered`);
+  const fill = el('span');
+  bar.append(fill);
+  box.dataset.level = rate >= 95 ? 'good' : rate >= 80 ? 'warn' : 'bad';
+  const note = el('p', 'live-note');
+  const bits = [];
+  if (days !== 7) bits.push(`Last ${days} days.`);
+  if (models.length === 1 && withTimes.length === 1) bits.push(`Median ${(Number(withTimes[0].medianMs) / 1000).toFixed(1)} s.`);
+  const stamp = when(w.generatedAt);
+  if (stamp) bits.push(`Updated ${stamp}.`);
+  note.append(document.createTextNode(bits.join(' ') + ' '));
+  const a = el('a', '', 'See the data');
+  a.href = box.dataset.weather;
+  note.append(a);
+  box.textContent = '';
+  box.append(top, bar, note);
+  box.dataset.live = 'true';
+  requestAnimationFrame(() => { fill.style.width = `${Math.max(0, Math.min(100, rate))}%`; });
+}
+
 function render(box, w) {
   const models = Array.isArray(w.models) ? w.models : [];
   const tries = models.reduce((n, m) => n + (Number(m.tries) || 0), 0);
@@ -35,6 +63,7 @@ function render(box, w) {
     return;
   }
   const rate = (answered / tries) * 100;
+  if (box.dataset.compact) return renderCompact(box, w, { tries, answered, rate, days, models });
   const head = el('p', 'live-head');
   head.append(el('span', 'dot'), document.createTextNode(`Live from ${name}`), el('span', 'span', `last ${days} days`));
   if (tries < SMALL_SAMPLE) head.append(el('span', 'live-badge', 'Small sample'));
