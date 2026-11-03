@@ -11,6 +11,7 @@ from dataclasses import dataclass, field
 from typing import Any, Awaitable, Callable, Optional, Union
 
 from .catalog import ROUTER, Catalog, pick_models
+from .discover import heal_provider_models
 from .errors import LodestoneError, ProviderError, message_from
 from .health import Health
 from .limiter import RateLimiter
@@ -18,7 +19,7 @@ from .providers import Anthropic, OpenRouter, ProviderReply, ProviderRequest
 from .ratelimit_reading import read_rate_limit
 from .spend import SpendInfo, SpendLimit
 from .stores import MemoryStore
-from .trust import TrustPolicy
+from .trust import TrustPolicy, vet
 
 DEFAULT_MODELS = {
     "fast": ["google/gemma-4-26b-a4b-it:free", "nvidia/nemotron-3.5-lightning:free", ROUTER],
@@ -26,6 +27,16 @@ DEFAULT_MODELS = {
 }
 DEFAULT_PAID_MODELS = ["qwen/qwen3.7-flash", "mistralai/mistral-small-3.2-24b-instruct"]
 POOL, ACTIVE = 8, 3
+
+
+@dataclass
+class Discover:
+    """How a fallback's model list is kept alive from the provider's own catalogue (needs a provider with ``list_models``; Anthropic has one).
+    A model you named that the provider no longer lists, or that is retired or about to be, is always dropped. With ``replace_retired`` it is
+    swapped for the provider's newest current model of the same line instead (a Sonnet for a retired Sonnet). That is off by default because a
+    replacement can cost more or behave differently; ``check_providers()`` reports every swap."""
+
+    replace_retired: bool = False
 
 
 @dataclass
@@ -38,6 +49,7 @@ class Fallback:
     free: bool = False  # costs nothing: not counted against, or stopped by, the spend limit
     allow_with_caller_key: bool = False
     privacy: Optional[str] = None  # 'no-training': your statement that this provider does not keep or train on API prompts
+    discover: Optional[Discover] = None
 
 
 @dataclass
@@ -140,6 +152,9 @@ class Lodestone:
         self.paid_models = self.or_cfg.paid_models if self.or_cfg.paid_models is not None else DEFAULT_PAID_MODELS
         self.registry = {"openrouter": self.router, "anthropic": Anthropic(), **(providers or {})}
         self.catalog = Catalog(self.store, fetch=fetch_catalog) if fetch_catalog else Catalog(self.store)
+        # One catalogue per fallback provider that can list its models, kept in the same store.
+        self.fb_catalogs = {id(fb): Catalog(self.store, key=f"lodestone:catalog:{fb.provider.name}", fetch=lambda fb=fb: fb.provider.list_models(fb.api_key))
+                            for fb in self.fallbacks if callable(getattr(fb.provider, "list_models", None))}
 
     # --- public -----------------------------------------------------------------------------------------------
 
@@ -176,6 +191,27 @@ class Lodestone:
 
     async def refresh_catalog(self) -> Optional[list[dict]]:
         return await self.catalog.refresh()
+
+    async def check_providers(self) -> dict[str, dict]:
+        """The daily check for each fallback provider that can list its models: saves the list, and says which named models have gone, which are
+        retiring, which were swapped for a current one of the same line (needs ``Discover(replace_retired=True)``) and which found no replacement."""
+        out: dict[str, dict] = {}
+        now_ms = time.time() * 1000
+        for fb in self.fallbacks:
+            cat = self.fb_catalogs.get(id(fb))
+            if cat is None:
+                continue
+            listed = await cat.refresh()
+            name = fb.provider.name
+            if not listed:
+                out[name] = {"models": 0, "withdrawn": [], "expiring": [], "error": "could not read its model list"}
+                continue
+            have = {m["id"]: m for m in listed}
+            h = heal_provider_models(fb.models, listed, tier="strong", policy=self.trust, replace_retired=bool(fb.discover and fb.discover.replace_retired), now_ms=now_ms)
+            out[name] = {"models": len(listed), "withdrawn": [m for m in fb.models if m not in have],
+                         "expiring": [m for m in fb.models if m in have and vet(have[m], self.trust, False, now_ms) == "expiring"],
+                         **({"replaced": h.replaced} if h.replaced else {}), **({"unreplaced": h.unreplaced} if h.unreplaced else {})}
+        return out
 
     async def resolve_models(self, tier: str = "fast") -> list[str]:
         try:
@@ -314,8 +350,18 @@ class _Call:
 
     async def _fallback_models(self, fb: Fallback) -> list[str]:
         # A private call may only go where something vouches that prompts are not kept or trained on. The Python port does not read provider
-        # model lists, so the only voucher is the app's own word.
-        return fb.models if (not self.strict or fb.privacy == "no-training") else []
+        # privacy facts, so the only voucher is the app's own word.
+        if self.strict and fb.privacy != "no-training":
+            return []
+        cat = self.ai.fb_catalogs.get(id(fb))
+        if cat is None:
+            return fb.models
+        try:
+            listed = await cat.load()
+            return heal_provider_models(fb.models, listed, tier=self.tier, policy=self.ai.trust, replace_retired=bool(fb.discover and fb.discover.replace_retired),
+                                        now_ms=time.time() * 1000).models
+        except Exception:
+            return fb.models
 
     async def run(self) -> Result:
         ai, o = self.ai, self.o

@@ -21,6 +21,12 @@ export interface CatalogModel {
   data_retention_days?: number;
   /** Zero price, as the provider says it. */
   free?: boolean;
+  /** Where the provider says the model is in its life: Anthropic publishes this. A retired model no longer answers. */
+  lifecycle?: 'active' | 'deprecated' | 'retired';
+  /** The family the provider puts the model in (Anthropic: haiku, sonnet, opus...). Models of one line can stand in for each other. */
+  line?: string;
+  /** When the model was released, as the provider says it. */
+  created_at?: string;
 }
 
 export const ROUTER = 'openrouter/free';
@@ -31,7 +37,7 @@ const isFree = (m: CatalogModel) => m.id.endsWith(':free') || (Number(m.pricing?
 export const promptPerMTok = (m: CatalogModel): number | undefined => { const n = Number(m.pricing?.prompt); return m.pricing?.prompt !== undefined && m.pricing?.prompt !== '' && Number.isFinite(n) ? n * 1e6 : undefined; };
 export const completionPerMTok = (m: CatalogModel): number | undefined => { const n = Number(m.pricing?.completion); return m.pricing?.completion !== undefined && m.pricing?.completion !== '' && Number.isFinite(n) ? n * 1e6 : undefined; };
 const textOut = (m: CatalogModel) => (m.architecture?.output_modalities ?? ['text']).join() === 'text';
-const takesImages = (m: CatalogModel) => (m.architecture?.input_modalities ?? []).includes('image');
+export const takesImages = (m: CatalogModel) => (m.architecture?.input_modalities ?? []).includes('image');
 // Safety classifiers, audio and music models, code-only models and embedders are not for writing or reading text.
 const EXCLUDE = /safety|guard|moderation|lyria|embed|rerank|tts|whisper|code|coder|preview-audio|ocr/i;
 

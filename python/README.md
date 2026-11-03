@@ -58,7 +58,7 @@ Everything in the TypeScript library's [README](../README.md) about these, with 
 
 Be clear-eyed about these before you choose it over the TypeScript library.
 
-- **Model lists other than OpenRouter's.** The port can't read the other providers' model lists. So Requesty's price, lab and data-policy details, and `discover` (topping up a fallback's model list), are TypeScript-only. For a private call, a fallback is only used if you vouch for it.
+- **Model lists other than OpenRouter's.** The port reads one other list: Anthropic's (`Anthropic().list_models`). With it, a retired id is dropped from a fallback's chain, and `Fallback(..., discover=Discover(replace_retired=True))` swaps a gone model for the newest active one of the same line; `await ai.check_providers()` reports every swap. Requesty's price, lab and data-policy details, and `discover`'s `fill` (topping up a fallback's model list), are TypeScript-only. For a private call, a fallback is only used if you vouch for it.
 - **Cancelling a hung request.** A hung call is cut off at its time slice and the next model is tried, but the thread making the request is only ended by its socket timeout, not killed.
 
 ## Disclaimers

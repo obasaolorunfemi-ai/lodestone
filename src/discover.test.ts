@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { CatalogModel } from './catalog.js';
-import { resolveProviderModels } from './discover.js';
+import { healProviderModels, resolveProviderModels } from './discover.js';
 
 const NOW = Date.parse('2026-10-28T12:00:00Z');
 const m = (id: string, price = 0, o: Partial<CatalogModel> = {}): CatalogModel => ({ id, context_length: 128_000, architecture: { input_modalities: ['text'], output_modalities: ['text'] }, pricing: { prompt: price / 1e6, completion: price / 1e6 }, ...o });
@@ -39,5 +39,54 @@ describe('resolveProviderModels', () => {
     const cat = [m('google/trains-flash', 0, { data_used_for_training: true }), m('google/safe-flash', 0, { data_used_for_training: false, data_retention_days: 0 }), m('google/unknown-flash')];
     const out = resolveProviderModels([], cat, { ...base, strict: true, policy: { requireNoTraining: true }, fill: { maxPromptUsdPerMTok: 0, maxCompletionUsdPerMTok: 0 } });
     expect(out).toEqual(['google/safe-flash']);
+  });
+});
+
+describe('healProviderModels: a gone model of a known line', () => {
+  const claude = (id: string, line: string, created: string, o: Partial<CatalogModel> = {}): CatalogModel => ({ id, publisher: 'anthropic', line, created_at: created, lifecycle: 'active', architecture: { input_modalities: ['text', 'image'], output_modalities: ['text'] }, ...o });
+  const cat = [
+    claude('claude-sonnet-4-20250514', 'sonnet', '2025-05-14T00:00:00Z', { lifecycle: 'retired' }),
+    claude('claude-sonnet-4-5-20250929', 'sonnet', '2025-09-29T00:00:00Z', { lifecycle: 'deprecated', expiration_date: '2026-11-30T00:00:00Z' }),
+    claude('claude-sonnet-5-5', 'sonnet', '2026-09-21T00:00:00Z'),
+    claude('claude-sonnet-5-4', 'sonnet', '2026-06-01T00:00:00Z'),
+    claude('claude-opus-5-5', 'opus', '2026-09-21T00:00:00Z'),
+  ];
+  const o = { tier: 'strong' as const, now: NOW, replaceRetired: true };
+
+  it('drops a retired model by default and does not replace it', () => {
+    const h = healProviderModels(['claude-sonnet-4-20250514', 'claude-opus-5-5'], cat, { tier: 'strong', now: NOW });
+    expect(h.models).toEqual(['claude-opus-5-5']);
+    expect(h.replaced).toEqual([]);
+  });
+  it('with replaceRetired, puts the newest current model of the same line in its place and says so', () => {
+    const h = healProviderModels(['claude-sonnet-4-20250514'], cat, o);
+    expect(h.models).toEqual(['claude-sonnet-5-5']);
+    expect(h.replaced).toEqual([{ from: 'claude-sonnet-4-20250514', to: 'claude-sonnet-5-5', reason: 'retired' }]);
+  });
+  it('never crosses to another line, and never picks a deprecated model or one the app already named', () => {
+    const h = healProviderModels(['claude-sonnet-4-20250514', 'claude-sonnet-5-5'], cat, o);
+    expect(h.models).toEqual(['claude-sonnet-5-4', 'claude-sonnet-5-5']);   // takes the retired one's place in the list
+    expect(h.replaced[0].to).toBe('claude-sonnet-5-4');
+    expect(h.models).not.toContain('claude-opus-5-5');
+    expect(h.models).not.toContain('claude-sonnet-4-5-20250929');
+  });
+  it('treats a model about to retire as gone', () => {
+    const h = healProviderModels(['claude-sonnet-4-5-20250929'], cat, { ...o, now: Date.parse('2026-11-28T00:00:00Z') });
+    expect(h.replaced).toEqual([{ from: 'claude-sonnet-4-5-20250929', to: 'claude-sonnet-5-5', reason: 'expiring' }]);
+  });
+  it('cannot place a model the provider no longer lists at all, because its line is unknown, and says so', () => {
+    const h = healProviderModels(['claude-sonnet-3-7'], cat, o);
+    expect(h.models).toEqual([]);
+    expect(h.unreplaced).toEqual([{ id: 'claude-sonnet-3-7', reason: 'withdrawn', note: 'no longer listed, so its line is unknown' }]);
+  });
+  it('says so when the line has nothing current, and does not swap for a model the policy refuses', () => {
+    const only = [claude('claude-haiku-3', 'haiku', '2024-03-01T00:00:00Z', { lifecycle: 'retired' })];
+    expect(healProviderModels(['claude-haiku-3'], only, o).unreplaced[0].note).toBe('no current haiku model to take its place');
+    const blocked = healProviderModels(['claude-sonnet-4-20250514'], cat, { ...o, policy: { block: ['claude-sonnet-5-5'] } });
+    expect(blocked.replaced[0].to).toBe('claude-sonnet-5-4');
+  });
+  it('for the vision tier, only a model that reads images takes the place', () => {
+    const noImg = cat.map((m) => (m.id === 'claude-sonnet-5-5' ? { ...m, architecture: { input_modalities: ['text'], output_modalities: ['text'] } } : m));
+    expect(healProviderModels(['claude-sonnet-4-20250514'], noImg, { ...o, tier: 'vision' }).replaced[0].to).toBe('claude-sonnet-5-4');
   });
 });

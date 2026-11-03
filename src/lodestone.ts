@@ -1,5 +1,5 @@
 import { createCatalog, pickModels, ROUTER, type Catalog, type CatalogModel } from './catalog.js';
-import { resolveProviderModels, type FillOptions } from './discover.js';
+import { healProviderModels, resolveProviderModels, type FillOptions } from './discover.js';
 import type { TrustPolicy } from './trust.js';
 import { CANDIDATES_SCHEMA, type Candidates, type Candidate } from './candidates.js';
 import { LodestoneError, messageFrom, ProviderError, type FailureKind } from './errors.js';
@@ -32,8 +32,8 @@ export interface FallbackConfig {
   models: string[];
   /** This provider costs nothing (a free tier, a local server): its calls are not counted against, or stopped by, the spend limit. */
   free?: boolean;
-  /** Keep this provider's list alive from its own catalogue (needs a provider that can list its models): models it no longer offers, or that are retiring or refused by `trust`, are dropped, and with `fill` a short list is topped up with trusted models within a price limit, never above `max` (default 3). */
-  discover?: { fill?: FillOptions; max?: number };
+  /** Keep this provider's list alive from its own catalogue (needs a provider that can list its models): models it no longer offers, or that are retiring or refused by `trust`, are dropped, and with `fill` a short list is topped up with trusted models within a price limit, never above `max` (default 3). With `replaceRetired`, a model you named that has gone (retired, no longer listed, or about to be) is swapped for the provider's newest current model of the same line instead of just dropped (Anthropic: another Sonnet for a retired Sonnet). It is off by default because a replacement can cost more or behave differently, and `checkModels()` reports every swap. */
+  discover?: { fill?: FillOptions; max?: number; replaceRetired?: boolean };
   /** Also use this provider when the caller supplied their own OpenRouter key. Default false: a fallback has the platform's key, and a caller's own key must never lead to the platform's money being spent. */
   allowWithCallerKey?: boolean;
   /** Your statement that this provider does not keep or train on API prompts (you have read its terms). A call marked `private` uses a fallback only if the provider's own model list says so for that model, or you say so here. Without either, `private` skips it: Lodestone cannot see what a provider does with a prompt unless the provider publishes it. */
@@ -207,7 +207,7 @@ export interface CheckResult {
   expiring?: string[];
   shortTiers?: Tier[];
   /** The same check for each other provider that can list its models. */
-  providers?: Record<string, { models: number; withdrawn: string[]; expiring: string[]; error?: string }>;
+  providers?: Record<string, { models: number; withdrawn: string[]; expiring: string[]; /** Models swapped for a current one of the same line (needs `discover.replaceRetired`). Fix your list: this is Lodestone telling you, not asking. */ replaced?: { from: string; to: string; reason: string }[]; /** Named models that have gone and found no replacement. */ unreplaced?: { id: string; reason: string; note?: string }[]; error?: string }>;
 }
 
 /** How many candidates are kept in the background for a tier. A request still tries at most three. */
@@ -257,7 +257,7 @@ export function createLodestone(config: LodestoneConfig = {}) {
       const listed = await cat.load();
       if (strict && !vouched && !listed?.length) return []; // no list, so nothing to check the models against
       const p = strict && !vouched ? { ...policy, requireNoTraining: true } : policy;
-      return resolveProviderModels(fb.models, listed, { tier, policy: p, strict: strict && !vouched, fill: fb.discover?.fill, max: fb.discover?.max, now: now() });
+      return resolveProviderModels(fb.models, listed, { tier, policy: p, strict: strict && !vouched, fill: fb.discover?.fill, max: fb.discover?.max, replaceRetired: fb.discover?.replaceRetired, now: now() });
     } catch { return strict && !vouched ? [] : fb.models; }
   }
 
@@ -556,6 +556,12 @@ export function createLodestone(config: LodestoneConfig = {}) {
     return { ...result, data: (done.ok ? done.data : tryParseJson<T>(result.text)) as T };
   }
 
+  /** What the daily check says about a provider's own list: swaps made and models that could not be swapped. */
+  function healed(fb: FallbackConfig, listed: CatalogModel[]): { replaced?: { from: string; to: string; reason: string }[]; unreplaced?: { id: string; reason: string; note?: string }[] } {
+    const h = healProviderModels(fb.models, listed, { tier: 'strong', policy, replaceRetired: fb.discover?.replaceRetired, now: now() });
+    return { ...(h.replaced.length ? { replaced: h.replaced } : {}), ...(h.unreplaced.length ? { unreplaced: h.unreplaced } : {}) };
+  }
+
   /** Fetches and saves OpenRouter's current catalogue. Run it daily. */
   const refreshCatalog = (): Promise<CatalogModel[] | null> => catalog.refresh();
 
@@ -584,6 +590,7 @@ export function createLodestone(config: LodestoneConfig = {}) {
         models: listed.length,
         withdrawn: fb.models.filter((m) => !have.has(m)),
         expiring: fb.models.filter((m) => { const d = have.get(m)?.expiration_date; return d !== undefined && Date.parse(d) - now() < horizon; }),
+        ...healed(fb, listed),
       };
     }
     return { ok: shortTiers.length === 0, catalogSize: models.length, withdrawn, expiring, shortTiers, ...(Object.keys(providers).length ? { providers } : {}) };
