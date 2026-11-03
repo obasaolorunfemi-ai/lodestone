@@ -29,6 +29,13 @@
     "does": "Its \"Free · no key\" option: a thinking partner for testers who have no API key. Lodestone swaps out withdrawn models and keeps one slow model from using the whole time budget. A person who brings their own key calls the provider directly, not through Lodestone."
   },
   {
+    "name": "Whetstone",
+    "url": "https://whetstone.extrafemi.com/",
+    "kind": "runs",
+    "logo": "whetstone.svg",
+    "does": "Its hosted free test key, for people who have no API key of their own: a small Cloudflare Worker whose model calls run through Lodestone, with a shared daily pool and a per-person allowance so the free key stays inside its provider's limits."
+  },
+  {
     "name": "Naija Eval",
     "url": "https://naija-eval.extrafemi.com/",
     "kind": "feeds",
