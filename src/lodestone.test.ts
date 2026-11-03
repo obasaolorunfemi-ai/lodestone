@@ -3,6 +3,7 @@ import { ProviderError } from './errors.js';
 import { LodestoneError } from './errors.js';
 import { createLodestone, type AttemptEvent } from './lodestone.js';
 import { mock } from './providers/mock.js';
+import { anthropic } from './providers/anthropic.js';
 import { memoryStore } from './store.js';
 import type { CatalogModel } from './catalog.js';
 import type { ProviderRequest } from './types.js';
@@ -689,6 +690,46 @@ describe('other providers keep their lists alive', () => {
     const ai = createLodestone({ openrouter: { apiKey: 'k', provider: down(), models }, fallbacks: [{ provider: gw, apiKey: 'g', models: ['google/x'] }], timing: quick, fetch: (async () => new Response(JSON.stringify({ data: [{ id: 'free-a:free', context_length: 100000 }] }))) as typeof fetch });
     expect((await ai.checkModels()).providers?.mock).toMatchObject({ error: expect.stringContaining('could not read') });
     expect((await ai.complete({ prompt: 'x' })).text).toBe('from gateway');
+  });
+});
+
+describe('a retired Anthropic model heals itself', () => {
+  const NOW = Date.parse('2026-11-03T12:00:00Z');
+  const row = (id: string, o: Record<string, unknown> = {}) => ({ type: 'model', id, created_at: '2026-09-21T00:00:00Z', lifecycle: 'active', line: 'sonnet', retires_at: null, capabilities: { image_input: { supported: true } }, ...o });
+  /** Anthropic's two endpoints on one fake fetch; remembers the models it was asked to answer with. */
+  function api() {
+    const asked: string[] = [];
+    const f = (async (url: string, init: RequestInit) => {
+      if (String(url).includes('/v1/models')) {
+        const data = String(url).includes('lifecycle=retired') ? [row('claude-sonnet-4-20250514', { lifecycle: 'retired', created_at: '2025-05-14T00:00:00Z' })] : [row('claude-sonnet-5-5')];
+        return new Response(JSON.stringify({ data, has_more: false }));
+      }
+      const model = JSON.parse(String(init.body)).model as string;
+      asked.push(model);
+      return model === 'claude-sonnet-4-20250514' ? new Response('model retired', { status: 404 }) : new Response(JSON.stringify({ content: [{ type: 'text', text: 'hello' }], usage: { input_tokens: 1, output_tokens: 1 } }));
+    }) as unknown as typeof fetch;
+    return { asked, f };
+  }
+  const down = () => mock(() => fail(503));
+  const run = (discover: { replaceRetired?: boolean } | undefined) => {
+    const { asked, f } = api();
+    const ai = createLodestone({ openrouter: { apiKey: 'k', provider: down(), models }, fallbacks: [{ provider: anthropic({ fetch: f }), apiKey: 'a', models: ['claude-sonnet-4-20250514'], discover }], fetch: f, now: () => NOW, timing: quick });
+    return { ai, asked };
+  };
+
+  it('with replaceRetired, a call goes to the current model of the same line, and checkModels reports the swap', async () => {
+    const { ai, asked } = run({ replaceRetired: true });
+    const check = await ai.checkModels();
+    expect(check.providers?.anthropic?.replaced).toEqual([{ from: 'claude-sonnet-4-20250514', to: 'claude-sonnet-5-5', reason: 'retired' }]);
+    const r = await ai.complete({ prompt: 'hi' });
+    expect(r).toMatchObject({ text: 'hello', provider: 'anthropic', model: 'claude-sonnet-5-5' });
+    expect(asked).toEqual(['claude-sonnet-5-5']);
+  });
+  it('without it, the retired model is not asked for and nothing is swapped in', async () => {
+    const { ai, asked } = run(undefined);
+    await ai.checkModels();
+    await ai.complete({ prompt: 'hi' }).catch(() => {});
+    expect(asked).toEqual([]);
   });
 });
 

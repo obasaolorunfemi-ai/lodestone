@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { ProviderError } from '../errors.js';
-import { anthropic } from './anthropic.js';
+import { anthropic, normalizeAnthropic } from './anthropic.js';
 import { google } from './google.js';
 import { openrouter } from './openrouter.js';
 
@@ -103,5 +103,51 @@ describe('openrouter reasoning per model', () => {
     expect(sent['anthropic/claude-haiku-5.5']).toEqual({ enabled: false });
     expect(sent['google/gemini-3.8-flash']).toEqual({ effort: 'low', exclude: true });
     expect(sent['mistralai/mistral-small']).toBeUndefined();
+  });
+});
+
+describe('anthropic model list', () => {
+  const row = (id: string, o: Record<string, unknown> = {}) => ({ type: 'model', id, display_name: id, created_at: '2026-09-21T00:00:00Z', lifecycle: 'active', line: 'sonnet', retires_at: null, deprecated_at: null, max_input_tokens: 1_000_000, max_tokens: 64_000, capabilities: { image_input: { supported: true } }, ...o });
+  /** Answers each request by its query string, and keeps the requests. */
+  function lister(answers: Record<string, unknown | number>) {
+    const calls: { url: string; headers: Record<string, string> }[] = [];
+    const f = (async (url: string, init: RequestInit) => {
+      calls.push({ url: String(url), headers: init.headers as Record<string, string> });
+      const key = Object.keys(answers).find((k) => k && String(url).includes(k)) ?? '';
+      const a = answers[key];
+      return typeof a === 'number' ? new Response('no', { status: a }) : new Response(JSON.stringify(a), { status: 200 });
+    }) as unknown as typeof fetch;
+    return { calls, f };
+  }
+
+  it('turns a row into a catalogue entry: line, lifecycle, retirement date as the expiry, images, context', () => {
+    expect(normalizeAnthropic(row('claude-sonnet-5-5', { lifecycle: 'deprecated', retires_at: '2026-11-30T00:00:00Z' }))).toEqual({
+      id: 'claude-sonnet-5-5', publisher: 'anthropic', architecture: { input_modalities: ['text', 'image'], output_modalities: ['text'] },
+      context_length: 1_000_000, lifecycle: 'deprecated', line: 'sonnet', created_at: '2026-09-21T00:00:00Z', expiration_date: '2026-11-30T00:00:00Z',
+    });
+    expect(normalizeAnthropic(row('x', { capabilities: {}, line: null, max_input_tokens: 0 }))).toMatchObject({ architecture: { input_modalities: ['text'] }, publisher: 'anthropic' });
+    expect(normalizeAnthropic(row('x', { lifecycle: 'retired', retires_at: '2026-01-01T00:00:00Z' }))).not.toHaveProperty('expiration_date');
+    expect(normalizeAnthropic({ nope: 1 })).toBeNull();
+    expect(normalizeAnthropic('str')).toBeNull();
+  });
+  it('lists with the key in x-api-key, then asks for the retired ones too, and merges them', async () => {
+    const { calls, f } = lister({ 'lifecycle=retired': { data: [row('claude-sonnet-4-20250514', { lifecycle: 'retired' })], has_more: false }, '': { data: [row('claude-sonnet-5-5')], has_more: false } });
+    const models = await anthropic({ fetch: f }).listModels!('secret');
+    expect(models?.map((m) => [m.id, m.lifecycle])).toEqual([['claude-sonnet-5-5', 'active'], ['claude-sonnet-4-20250514', 'retired']]);
+    expect(calls[0].headers['x-api-key']).toBe('secret');
+    expect(calls[0].url).toContain('limit=1000');
+    expect(calls[1].url).toContain('lifecycle=retired');
+  });
+  it('follows pages', async () => {
+    let n = 0;
+    const f = (async () => new Response(JSON.stringify(n++ === 0 ? { data: [row('a')], has_more: true, last_id: 'a' } : { data: [row('b')], has_more: false }), { status: 200 })) as unknown as typeof fetch;
+    const models = await anthropic({ fetch: f }).listModels!('k');
+    expect(models?.map((m) => m.id)).toEqual(['a', 'b']);
+  });
+  it('keeps the live list when the retired read fails, and gives none when the live read fails', async () => {
+    const ok = lister({ 'lifecycle=retired': 400, '': { data: [row('claude-sonnet-5-5')], has_more: false } });
+    expect((await anthropic({ fetch: ok.f }).listModels!('k'))?.map((m) => m.id)).toEqual(['claude-sonnet-5-5']);
+    const bad = lister({ '': 401 });
+    expect(await anthropic({ fetch: bad.f }).listModels!('k')).toBeNull();
   });
 });
