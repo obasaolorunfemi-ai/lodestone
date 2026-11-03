@@ -5,7 +5,6 @@
     "kind": "runs",
     "logo": "keystone.svg",
     "does": "Scores and rewrites CVs.",
-    "runsOn": "Paid model first on the platform's key, free models as the backup, then Groq, LLM API and Requesty. A person's own key tries free models first.",
     "weather": "https://keystone.extrafemi.com/api/ai-weather"
   },
   {
@@ -13,24 +12,21 @@
     "url": "https://touchstone.extrafemi.com/",
     "kind": "runs",
     "logo": "touchstone.svg",
-    "does": "Audits a product, code or URL across eight domains. Lodestone chooses and replaces its models, sets time limits and a spend limit, and turns failures into plain sentences.",
-    "runsOn": "A paid model first, then the other providers it has configured as fallbacks."
+    "does": "Audits a product, code or URL across eight domains. Lodestone chooses and replaces its models, sets time limits and a spend limit, and turns failures into plain sentences."
   },
   {
     "name": "Inkstone",
     "url": "https://inkstone.extrafemi.com/",
     "kind": "runs",
     "logo": "inkstone.svg",
-    "does": "Writes in a company's voice, sourced by default. The first call in each cold serverless function waits for the current model catalogue (about 0.4 s), so a withdrawn model is dropped before it is tried.",
-    "runsOn": "Free models through OpenRouter, three attempts per call."
+    "does": "Writes in a company's voice, sourced by default. The first call in each cold serverless function waits for the current model catalogue (about 0.4 s), so a withdrawn model is dropped before it is tried."
   },
   {
     "name": "Fieldstone",
     "url": "https://fieldstone.extrafemi.com/",
     "kind": "runs",
     "logo": "fieldstone.svg",
-    "does": "Its \"Free · no key\" option: a thinking partner for testers who have no API key. Lodestone swaps out withdrawn models and keeps one slow model from using the whole time budget. A person who brings their own key calls the provider directly, not through Lodestone.",
-    "runsOn": "Free models first, Claude Haiku 5.5 as the backup, 30 replies per person per day and a daily spend ceiling on the backup. Prompts may be seen by free-model providers, and the terms say so."
+    "does": "Its \"Free · no key\" option: a thinking partner for testers who have no API key. Lodestone swaps out withdrawn models and keeps one slow model from using the whole time budget. A person who brings their own key calls the provider directly, not through Lodestone."
   },
   {
     "name": "Naija Eval",
