@@ -445,8 +445,22 @@ a.card.go:hover h3 { color: var(--ox); }
 .fam-card h2 { font: 700 clamp(1.5rem, 1.25rem + .8vw, 1.9rem)/1.1 var(--f-display); margin: 0; }
 .fam-card h2 a { color: var(--ink); text-decoration: none; }
 .fam-card h2 a:hover { color: var(--ox); }
-.fam-card .live-line { font-size: .9rem; color: var(--ink-3); border-top: 1px solid var(--rule); padding-top: 10px; }
-.fam-card .live-line[data-live="true"] { color: var(--good); }
+/* The live counts on a Runs on Lodestone card: a few numbers, a bar, and an honest note about how much they rest on. */
+.fam-card .live { border-top: 1px solid var(--rule); padding-top: 14px; display: grid; gap: 12px; }
+.live-head { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; font-size: .92rem; font-weight: 600; }
+.live-head .dot { width: .6rem; height: .6rem; border-radius: 50%; background: var(--good); flex: none; }
+.live-head .span { color: var(--ink-3); font-weight: 400; }
+.live-badge { margin-left: auto; font-size: .75rem; font-weight: 600; padding: 2px 10px; border-radius: 999px; background: var(--warn-wash); color: var(--warn); white-space: nowrap; }
+.live-stats { margin: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(6.5rem, 1fr)); gap: 12px 16px; }
+.live-stats > div { display: flex; flex-direction: column-reverse; gap: 2px; }
+.live-stats dt { font-size: .78rem; color: var(--ink-3); white-space: nowrap; }
+.live-stats dd { margin: 0; font: 500 clamp(1.6rem, 1.3rem + 1vw, 2.1rem)/1.05 var(--f-display); letter-spacing: -0.01em; font-variant-numeric: lining-nums; }
+.live-bar { height: 8px; border-radius: 4px; background: var(--rule); overflow: hidden; }
+.live-bar span { display: block; height: 100%; width: 0; border-radius: 4px; background: var(--good); transition: width .6s var(--ease); }
+.live[data-level="warn"] .live-bar span { background: var(--warn); }
+.live[data-level="bad"] .live-bar span { background: var(--bad); }
+.live-note { font-size: .85rem; color: var(--ink-3); }
+.live-note a { white-space: nowrap; }
 .fam-card .go { font-weight: 600; }
 
 /* Provider scroll on the home page */
