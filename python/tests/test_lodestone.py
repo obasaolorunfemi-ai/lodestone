@@ -402,6 +402,97 @@ if __name__ == "__main__":
     unittest.main()
 
 
+class SpendShares(unittest.IsolatedAsyncioTestCase):
+    def info(self, i, **kw):
+        return SpendInfo(i, "p", "m", "paid", **kw)
+
+    async def test_a_caller_stops_at_their_share_and_others_carry_on(self):
+        spend = SpendLimit(MemoryStore(), daily_usd=1, hold_usd=0.01, per_caller={"daily_usd": 0.03})
+        for i in "123":
+            self.assertTrue(await spend.allow(self.info(i, caller="ann")))
+            await spend.record(self.info(i, caller="ann"), 0.01)
+        self.assertFalse(await spend.allow(self.info("4", caller="ann")))
+        self.assertEqual(spend.refusal("4"), "caller")
+        self.assertIsNone(spend.refusal("4"))
+        self.assertTrue(await spend.allow(self.info("5", caller="bob")))
+        self.assertAlmostEqual((await spend.report())["today_usd"], 0.03, places=6)
+
+    async def test_the_pool_still_binds_everyone_and_says_so(self):
+        spend = SpendLimit(MemoryStore(), daily_usd=0.02, hold_usd=0.01, per_caller={"daily_usd": 1})
+        self.assertTrue(await spend.allow(self.info("1", caller="ann")))
+        self.assertTrue(await spend.allow(self.info("2", caller="bob")))
+        self.assertFalse(await spend.allow(self.info("3", caller="cat")))
+        self.assertEqual(spend.refusal("3"), "app")
+
+    async def test_a_person_can_lower_their_share_but_not_raise_it(self):
+        low = SpendLimit(MemoryStore(), daily_usd=1, hold_usd=0.01, per_caller={"daily_usd": 0.05})
+        self.assertTrue(await low.allow(self.info("a", caller="ann", cap={"daily_usd": 0.01})))
+        self.assertFalse(await low.allow(self.info("b", caller="ann", cap={"daily_usd": 0.01})))
+        high = SpendLimit(MemoryStore(), daily_usd=1, hold_usd=0.01, per_caller={"daily_usd": 0.01})
+        self.assertTrue(await high.allow(self.info("a", caller="bob", cap={"daily_usd": 5})))
+        self.assertFalse(await high.allow(self.info("b", caller="bob", cap={"daily_usd": 5})))
+
+    async def test_a_call_without_a_caller_is_held_only_to_the_pool(self):
+        spend = SpendLimit(MemoryStore(), daily_usd=1, hold_usd=0.01, per_caller={"daily_usd": 0.01})
+        self.assertTrue(all([await spend.allow(self.info(str(i))) for i in range(3)]))
+
+    async def test_the_caller_is_stored_as_a_hash(self):
+        keys = []
+        class Spy:
+            async def get(self, k): return None
+            async def set(self, k, v, *a): keys.append(k)
+        await SpendLimit(Spy(), per_caller={"daily_usd": 1}).allow(self.info("a", caller="203.0.113.7"))
+        self.assertFalse(any("203.0.113.7" in k for k in keys))
+        self.assertTrue(any(":caller:" in k for k in keys))
+
+    async def test_a_cap_on_their_own_key_is_kept_apart_from_the_pool(self):
+        spend = SpendLimit(MemoryStore(), daily_usd=1, hold_usd=0.01)
+        own = lambda i: self.info(i, caller="ann", own_key=True, cap={"daily_usd": 0.02})
+        for i in "12":
+            self.assertTrue(await spend.allow(own(i)))
+            await spend.record(own(i), 0.01)
+        self.assertFalse(await spend.allow(own("3")))
+        self.assertEqual(spend.refusal("3"), "own-key")
+        self.assertEqual((await spend.report())["today_usd"], 0)
+        self.assertAlmostEqual((await spend.caller_report("ann", own_key=True, cap={"daily_usd": 0.02}))["today_usd"], 0.02, places=6)
+
+    def paid(self, spend):
+        p = Mock(lambda req: ProviderReply("ok", 1, 1, 0.01) if req.model.startswith("paid") else fail(503))
+        return make(p, spend=spend, openrouter=OpenRouterConfig(api_key="platform", models=MODELS, provider=p, allow_paid=True, paid_models=["paid-1"]))
+
+    async def test_through_the_client_a_caller_over_their_share_gets_a_budget_error_naming_it(self):
+        ai = self.paid(SpendLimit(MemoryStore(), daily_usd=10, hold_usd=0.01, per_caller={"daily_usd": 0.02}))
+        await ai.complete("x", caller="ann"); await ai.complete("x", caller="ann")
+        with self.assertRaises(LodestoneError) as cm:
+            await ai.complete("x", caller="ann")
+        self.assertEqual((cm.exception.kind, cm.exception.detail["scope"]), ("budget", "caller"))
+        self.assertIn("used your share of Acme", explain(cm.exception, product="Acme"))
+        self.assertEqual((await ai.complete("x", caller="bob")).text, "ok")
+
+    async def test_through_the_client_their_own_key_is_uncounted_unless_they_set_a_cap(self):
+        spend = SpendLimit(MemoryStore(), daily_usd=0.01, hold_usd=0.01, per_caller={"daily_usd": 0.01})
+        ai = self.paid(spend)
+        for _ in range(3):
+            self.assertEqual((await ai.complete("x", caller="ann", api_key="theirs")).text, "ok")
+        self.assertEqual((await spend.report())["today_usd"], 0)
+        spend2 = SpendLimit(MemoryStore(), daily_usd=10, hold_usd=0.01)
+        ai2 = self.paid(spend2)
+        call = lambda: ai2.complete("x", caller="ann", api_key="theirs", spend_cap={"daily_usd": 0.02})
+        await call(); await call()
+        with self.assertRaises(LodestoneError) as cm:
+            await call()
+        self.assertEqual(cm.exception.detail["scope"], "own-key")
+        self.assertEqual((await spend2.report())["today_usd"], 0)
+
+    async def test_a_cap_it_cannot_keep_is_refused_not_ignored(self):
+        ai = self.paid(SpendLimit(MemoryStore(), daily_usd=1))
+        with self.assertRaisesRegex(TypeError, "needs a caller"):
+            await ai.complete("x", spend_cap={"daily_usd": 1})
+        with self.assertRaisesRegex(TypeError, "zero or more"):
+            await ai.complete("x", caller="a", spend_cap={"daily_usd": -1})
+        with self.assertRaisesRegex(TypeError, "SpendLimit"):
+            await make(Mock("ok")).complete("x", caller="a", spend_cap={"daily_usd": 1})
+
 def claude(mid, line, created, **kw):
     return {"id": mid, "publisher": "anthropic", "line": line, "created_at": created, "lifecycle": "active",
             "architecture": {"input_modalities": ["text", "image"], "output_modalities": ["text"]}, **kw}

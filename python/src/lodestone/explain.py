@@ -50,6 +50,10 @@ def explain(err: Any, product: str = "the app", settings_hint: Optional[str] = N
     if kind == "aborted":
         return "Cancelled."
     if kind == "budget":
+        if d.get("scope") == "caller":
+            return f"You've used your share of {product}'s AI for now, and the free models are busy. Try again later" + (f", or add your own OpenRouter key {settings_hint} to keep going" if settings_hint else "") + "."
+        if d.get("scope") == "own-key":
+            return f"Your own key has reached the spending limit you set{' ' + settings_hint if settings_hint else ''}, and the free models are busy. Raise the limit or try again later."
         return f"{product}'s AI budget for now is used up, and the free models are busy. Try again later" + (f", or add your own OpenRouter key {settings_hint} to keep going" if settings_hint else "") + "."
     if kind == "throttled":
         mins = max(1, math.ceil((d.get("retry_after_ms") or 60_000) / 60_000))

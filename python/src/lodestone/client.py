@@ -160,7 +160,17 @@ class Lodestone:
 
     async def complete(self, prompt: Optional[str] = None, **opts: Any) -> Result:
         """Asks for an answer. Options: messages, system, task, tier, max_tokens, temperature, api_key (the caller's own OpenRouter key),
-        accept (a check an answer must pass), private, caller, cache_key, cache_ttl_s, route."""
+        accept (a check an answer must pass), private, caller, spend_cap ({'daily_usd', 'monthly_usd'}: a limit the person chose for themselves; on the
+        app's money it can only lower their share, on their own key it is a cap on what that key spends; needs ``caller`` and a SpendLimit), cache_key,
+        cache_ttl_s, route."""
+        cap = opts.get("spend_cap")
+        if cap:  # a limit a person asked for must be kept or refused, never quietly ignored
+            if not opts.get("caller"):
+                raise TypeError("spend_cap needs a caller: it is counted per caller")
+            if not getattr(self.spend, "handles_own_key", False):
+                raise TypeError("spend_cap needs a spend limit made with SpendLimit()")
+            if any(v is not None and not (isinstance(v, (int, float)) and not isinstance(v, bool) and v >= 0 and v == v and v != float("inf")) for v in cap.values()):
+                raise TypeError("spend_cap must be zero or more dollars")
         return await _Call(self, prompt, opts).run()
 
     async def json(self, prompt: Optional[str] = None, *, validate: Optional[Callable[[Any], bool]] = None, **opts: Any) -> Result:
@@ -232,7 +242,8 @@ class _Call:
         self.attempted = False
         self.last: Optional[_Out] = None
         self.rate_limited: Optional[_Out] = None
-        self.auth_failed = self.needs_credit = self.spend_blocked = False
+        self.auth_failed = self.needs_credit = False
+        self.spend_scope: Optional[str] = None
         self.throttled: Optional[float] = None
         self.held: Optional[SpendInfo] = None
         self.started = 0.0
@@ -256,18 +267,22 @@ class _Call:
         return keep
 
     async def _may_use(self, provider: Any, model: str, phase: str, free: bool = False) -> bool:
-        if self.caller_key or free:
+        if free:
             return True
-        if self.throttled is not None:  # a caller over their allowance (free-only) costs the platform nothing
+        # A caller's own key is their money. It is only counted when they set a cap of their own.
+        if self.caller_key and not (phase == "paid" and self.o.get("spend_cap") and self.ai.spend):
+            return True
+        if self.throttled is not None and not self.caller_key:  # a caller over their allowance (free-only) costs the platform nothing
             self._emit(provider, model, phase, "skipped")
             return False
         if not self.ai.spend:
             return True
-        info = SpendInfo(str(uuid.uuid4()), provider.name, model, phase)
+        info = SpendInfo(str(uuid.uuid4()), provider.name, model, phase, self.o.get("caller"), self.caller_key, self.o.get("spend_cap"))
         if await self.ai.spend.allow(info):
             self.held = info
             return True
-        self.spend_blocked = True
+        refusal = getattr(self.ai.spend, "refusal", None)
+        self.spend_scope = (refusal(info.id) if refusal else None) or ("own-key" if self.caller_key else "app")
         self._emit(provider, model, phase, "skipped")
         return False
 
@@ -316,9 +331,10 @@ class _Call:
 
     async def _finish(self, provider: Any, model: str, reply: ProviderReply, phase: Optional[str] = None, free: bool = False) -> Result:
         result = Result(reply.text, provider.name, model, reply.input_tokens, reply.output_tokens, reply.cost_usd)
-        if phase and not self.caller_key and not free and self.ai.spend:
+        if phase and not free and self.ai.spend and (not self.caller_key or (phase == "paid" and self.o.get("spend_cap"))):
             h = self.held
-            info = h if h and h.provider == provider.name and h.model == model else SpendInfo(str(uuid.uuid4()), provider.name, model, phase)
+            info = h if h and h.provider == provider.name and h.model == model else SpendInfo(
+                str(uuid.uuid4()), provider.name, model, phase, self.o.get("caller"), self.caller_key, self.o.get("spend_cap"))
             self.held = None
             try:  # a ledger that fails must never fail an answer the person is waiting for
                 await self.ai.spend.record(info, reply.cost_usd)
@@ -463,8 +479,8 @@ class _Call:
 
         if self.throttled is not None:
             raise LodestoneError("throttled", retry_after_ms=self.throttled)
-        if self.spend_blocked:
-            raise LodestoneError("budget")
+        if self.spend_scope:
+            raise LodestoneError("budget", scope=self.spend_scope)
         if not self.attempted:
             raise LodestoneError("not_configured")
         if not self.rate_limited and self.last and self.last.kind == "timeout":
