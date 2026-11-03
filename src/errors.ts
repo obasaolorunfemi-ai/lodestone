@@ -38,7 +38,7 @@ export type FailureKind =
   | 'bad_output'
   /** The caller stopped the call (it passed a signal that was aborted). */
   | 'aborted'
-  /** The platform's spend limit has been reached, so no paid model was used. */
+  /** A spend limit has been reached, so no paid model was used. `detail.scope` says whose: the app's pool, this caller's share of it, or the cap they set on their own key. */
   | 'budget'
   /** This caller has made too many calls in the time allowed (see `rateLimit`). `detail.retryAfterMs` says when to try again. */
   | 'throttled'
@@ -51,7 +51,7 @@ export type FailureKind =
 export class LodestoneError extends Error {
   constructor(
     public kind: FailureKind,
-    public detail: { status?: number; rateLimit?: RateLimitReading; ownKey?: boolean; needsCredit?: boolean; providerMessage?: string; retryAfterMs?: number } = {}
+    public detail: { status?: number; rateLimit?: RateLimitReading; ownKey?: boolean; needsCredit?: boolean; providerMessage?: string; retryAfterMs?: number; /** For 'budget': which limit stopped the call. */ scope?: 'app' | 'caller' | 'own-key' } = {}
   ) {
     super(`no model could answer: ${kind}`);
     this.name = 'LodestoneError';

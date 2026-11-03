@@ -1,5 +1,5 @@
 export { createLodestone } from './lodestone.js';
-export type { Lodestone, LodestoneConfig, CompleteOptions, CompleteResult, SafeParser, Profile, FallbackConfig, AttemptEvent, RouteStep, SpendControl, SpendInfo, CheckResult } from './lodestone.js';
+export type { Lodestone, LodestoneConfig, CompleteOptions, CompleteResult, SafeParser, Profile, FallbackConfig, AttemptEvent, RouteStep, SpendControl, SpendInfo, SpendCap, SpendScope, CheckResult } from './lodestone.js';
 export { LodestoneError, ProviderError, messageFrom } from './errors.js';
 export type { FailureKind } from './errors.js';
 export { explain } from './explain.js';

@@ -52,6 +52,8 @@ export function explain(err: unknown, opts: ExplainOptions = {}): string {
     case 'aborted':
       return 'Cancelled.';
     case 'budget':
+      if (detail.scope === 'caller') return `You've used your share of ${product}'s AI for now, and the free models are busy. Try again later${opts.settingsHint ? `, or add your own OpenRouter key ${opts.settingsHint} to keep going` : ''}.`;
+      if (detail.scope === 'own-key') return `Your own key has reached the spending limit you set${opts.settingsHint ? ` ${opts.settingsHint}` : ''}, and the free models are busy. Raise the limit or try again later.`;
       return `${product}'s AI budget for now is used up, and the free models are busy. Try again later${opts.settingsHint ? `, or add your own OpenRouter key ${opts.settingsHint.replace(/^in /, 'in ')} to keep going` : ''}.`;
     case 'throttled': {
       const mins = Math.max(1, Math.ceil((detail.retryAfterMs ?? 60_000) / 60_000));
