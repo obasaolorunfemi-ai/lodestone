@@ -2,7 +2,7 @@
 
 Versions before 1.0 may change between minor releases; each change that could break a caller is marked **breaking**.
 
-## Unreleased
+## 0.8.0
 
 - **A spend share for each caller.** `createSpendLimit({ perCaller: { dailyUsd, monthlyUsd } })` gives each caller (`caller` on the call; only a hash is stored) their own share of the pool, so one person cannot use it up for everyone. A call over its share fails with `kind: 'budget'` and `detail.scope: 'caller'` (`'app'` when the whole pool ran out); `explain()` words each. `spendCap` on a call lets a person lower their own share, never raise it. `spend.callerReport(caller)` says what they have used. A custom `SpendControl` can implement `refusal(id)` to report the scope.
 - **An optional cap on a person's own key, off by default.** `spendCap` on a call that carries the person's own `apiKey` counts their paid calls on that key in a ledger of their own (never the pool's) and stops at the number they chose (`scope: 'own-key'`). Without `spendCap` a caller's own key is still neither counted nor limited. A `spendCap` that cannot be kept (no `caller`, or a spend limit not made by `createSpendLimit`) throws a `TypeError` instead of being ignored. The provider's own limit on the key is the one that really holds; the docs say so. Python: `SpendLimit(per_caller=...)`, `spend_cap=` on a call, `caller_report()`.
