@@ -84,3 +84,14 @@ Some providers sit behind Cloudflare, which refuses Python's default User-Agent 
 cd python
 python -m unittest discover -s tests -t .
 ```
+
+## A spend share for each person, and an optional cap on their own key
+
+```python
+spend = SpendLimit(store, daily_usd=20, per_caller={"daily_usd": 0.10, "monthly_usd": 1})
+await ai.complete("...", caller=user_id)                                    # their share of the pool
+await ai.complete("...", caller=user_id, spend_cap={"daily_usd": 0.05})      # a person lowering their own share (never raising it)
+await ai.complete("...", caller=user_id, api_key=their_key, spend_cap={"daily_usd": 2})  # a cap on their own key, off unless passed
+```
+
+Over a share, the call raises ``LodestoneError`` with kind ``"budget"`` and ``detail["scope"]`` of ``"caller"``, ``"app"`` or ``"own-key"``. A caller's own key is neither counted nor limited unless ``spend_cap`` is passed. Set the limit on the key at the provider too: that is the one that really holds, and the count here is best-effort. See the main README for the full explanation.

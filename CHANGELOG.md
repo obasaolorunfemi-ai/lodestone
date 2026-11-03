@@ -2,6 +2,11 @@
 
 Versions before 1.0 may change between minor releases; each change that could break a caller is marked **breaking**.
 
+## Unreleased
+
+- **A spend share for each caller.** `createSpendLimit({ perCaller: { dailyUsd, monthlyUsd } })` gives each caller (`caller` on the call; only a hash is stored) their own share of the pool, so one person cannot use it up for everyone. A call over its share fails with `kind: 'budget'` and `detail.scope: 'caller'` (`'app'` when the whole pool ran out); `explain()` words each. `spendCap` on a call lets a person lower their own share, never raise it. `spend.callerReport(caller)` says what they have used. A custom `SpendControl` can implement `refusal(id)` to report the scope.
+- **An optional cap on a person's own key, off by default.** `spendCap` on a call that carries the person's own `apiKey` counts their paid calls on that key in a ledger of their own (never the pool's) and stops at the number they chose (`scope: 'own-key'`). Without `spendCap` a caller's own key is still neither counted nor limited. A `spendCap` that cannot be kept (no `caller`, or a spend limit not made by `createSpendLimit`) throws a `TypeError` instead of being ignored. The provider's own limit on the key is the one that really holds; the docs say so. Python: `SpendLimit(per_caller=...)`, `spend_cap=` on a call, `caller_report()`.
+
 ## 0.7.1
 
 - **`omniakey()` preset** (TypeScript and Python) for [OmniaKey](https://omniakey.com), a prepaid gateway with an OpenAI-compatible text endpoint. Use it as a `fallbacks` entry. It is a preset only: a key was accepted and its model list read (98 entries, with image, video and music models mixed in and nothing to tell them apart, so name your models and do not use `discover` with it), but the first chat call was refused with `insufficient_user_quota`, so it has not been seen to answer, and the Providers page says so. Text and JSON calls only; OmniaKey's image, video and music models are outside what Lodestone does.

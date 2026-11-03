@@ -123,6 +123,33 @@ const ai = createLodestone({ /* ... */, spend });
 
 `createSpendLimit` takes a **hold** for each paid attempt as it is allowed and counts holds against the limit, so a burst of concurrent requests cannot all pass the check before any has been counted. The hold is swapped for the real cost on an answer and given back (`release`) when the attempt fails. You can write your own `{ allow, record, release? }`; each receives an `id` naming the attempt.
 
+#### A share for each person
+
+```ts
+const spend = createSpendLimit({ store, dailyUsd: 20, perCaller: { dailyUsd: 0.10, monthlyUsd: 1 } });
+await ai.complete({ prompt, caller: user.id });
+```
+
+The limit above is one pool for everyone, so one heavy user can use it all up. `perCaller` gives each caller their own share of it, per day and per month. Name the caller on every call (`caller`, a user id or an IP address; only a hash is stored). A call without a caller is held to the pool only, so always pass one. Free models cost nothing and never use up a share.
+
+When someone is over their share the call fails with `kind: 'budget'` and `detail.scope: 'caller'` (`'app'` when the whole pool ran out), and `explain()` words each case differently, so your app can say "you've used your share, add your own key to carry on". `spend.callerReport(caller)` returns what they have used and may use, for a "$0.04 of $0.10 today" display.
+
+A person can lower their own share, never raise it: pass `spendCap: { dailyUsd: 0.05 }` on their calls (from a setting in your app), and the lower of that and `perCaller` applies.
+
+#### A cap on a person's own key
+
+When someone brings their own OpenRouter key, the spending is theirs, and Lodestone does not limit it. **That is the default: no limit, nothing counted.** If they want a safety net against a loop or a bug, let them set one, and pass it on their calls:
+
+```ts
+await ai.complete({ prompt, caller: user.id, apiKey: theirKey, spendCap: { dailyUsd: 2 } });
+```
+
+Their paid calls on that key are then counted in a ledger of their own, which never touches yours, and stop at the number they chose (`detail.scope: 'own-key'`). Your app stores the setting; Lodestone keeps the count.
+
+**Set the limit on the key itself too.** An OpenRouter key has its own credit limit, and that is the one that really holds. Lodestone's count is best-effort: it only sees calls made through this app, and with a plain get/set store two functions answering the same person at the same moment can each take a hold the other did not see. Tell people to put a limit on the key at the provider, and treat Lodestone's cap as a second line.
+
+`spendCap` needs a `caller` and a limit made by `createSpendLimit()`. Without them the call throws a `TypeError` instead of quietly ignoring a limit someone asked for.
+
 ### One person emptying the budget (`rateLimit`)
 
 A spend limit is one pot for everybody. Give each caller their own allowance, and name the caller on each call:
