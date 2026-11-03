@@ -2,6 +2,10 @@
 
 Versions before 1.0 may change between minor releases; each change that could break a caller is marked **breaking**.
 
+## Unreleased
+
+- **Anthropic self-healing.** `anthropic()` can now list Anthropic's models (`listModels`), so a fallback on the direct API keeps its chain alive like OpenRouter's: a retired id, or one retiring within a week, is dropped. New opt-in `discover: { replaceRetired: true }` swaps a gone model for the newest active model of the same `line` (never another line, never deprecated, trust policy applied, image-capable for vision calls) and `checkModels()` reports every swap (`replaced`, `unreplaced`). `CatalogModel` gains `lifecycle`, `line` and `created_at`; `healProviderModels()` is exported. Python port: `Anthropic.list_models`, `Fallback(discover=Discover(replace_retired=True))`, `heal_provider_models`, and `Lodestone.check_providers()`. Tested on fake responses only: the real Models API has not been called.
+
 ## 0.7.1
 
 - **`omniakey()` preset** (TypeScript and Python) for [OmniaKey](https://omniakey.com), a prepaid gateway with an OpenAI-compatible text endpoint. Use it as a `fallbacks` entry. It is a preset only: a key was accepted and its model list read (98 entries, with image, video and music models mixed in and nothing to tell them apart, so name your models and do not use `discover` with it), but the first chat call was refused with `insufficient_user_quota`, so it has not been seen to answer, and the Providers page says so. Text and JSON calls only; OmniaKey's image, video and music models are outside what Lodestone does.
