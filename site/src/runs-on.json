@@ -4,7 +4,7 @@
     "url": "https://keystone.extrafemi.com/",
     "kind": "runs",
     "logo": "keystone.svg",
-    "description": "Jobs, grants and visa routes in one place. Its CV scoring and rewriting call AI models through Lodestone, on Netlify Functions.",
+    "does": "Scores and rewrites CVs.",
     "weather": "https://keystone.extrafemi.com/api/ai-weather"
   },
   {
@@ -12,20 +12,28 @@
     "url": "https://touchstone.extrafemi.com/",
     "kind": "runs",
     "logo": "touchstone.svg",
-    "description": "The governance layer for AI builders: describe a product, paste code or point it at a URL and get a structured audit across eight domains. Its model calls run through Lodestone: choosing and replacing models, time limits, fallbacks to other providers, spend limits and plain-language failures."
+    "does": "Audits a product, code or URL across eight domains. Lodestone chooses and replaces its models, sets time limits and a spend limit, and turns failures into plain sentences."
   },
   {
     "name": "Inkstone",
     "url": "https://inkstone.extrafemi.com/",
     "kind": "runs",
     "logo": "inkstone.svg",
-    "description": "Brand-voice writing, sourced by default: it writes in a company's voice, won't put a figure in a draft it can't attribute to a named source, and a person signs off before anything ships. Its model calls run through Lodestone. The first call in each cold serverless function waits for the current model catalogue (about 0.4 s), so a model OpenRouter has withdrawn is dropped before it is tried, instead of costing one of the three free attempts."
+    "does": "Writes in a company's voice, sourced by default. The first call in each cold serverless function waits for the current model catalogue (about 0.4 s), so a withdrawn model is dropped before it is tried."
+  },
+  {
+    "name": "Fieldstone",
+    "url": "https://fieldstone.extrafemi.com/",
+    "kind": "runs",
+    "logo": "fieldstone.svg",
+    "does": "Its \"Free · no key\" option: a thinking partner for testers who have no API key. Lodestone swaps out withdrawn models and keeps one slow model from using the whole time budget. A person who brings their own key calls the provider directly, not through Lodestone."
   },
   {
     "name": "Naija Eval",
     "url": "https://naija-eval.extrafemi.com/",
     "kind": "feeds",
     "logo": "naija-eval.svg",
-    "description": "An independent, reproducible scorecard for N-ATLaS on Hausa, Igbo and Yoruba, and the first evaluator to publish model-scorecard/1."
+    "does": "An independent, reproducible scorecard for N-ATLaS on Hausa, Igbo and Yoruba, and the first evaluator to publish model-scorecard/1.",
+    "runsOn": "Measures models offline and publishes the scores Lodestone can order its models by."
   }
 ]
