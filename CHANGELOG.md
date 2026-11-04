@@ -2,6 +2,10 @@
 
 Versions before 1.0 may change between minor releases; each change that could break a caller is marked **breaking**.
 
+## Unreleased
+
+- **`cencori()` preset** (TypeScript and Python) for [Cencori](https://cencori.com), a gateway to chat models from several labs with an OpenAI-compatible endpoint (`api.cencori.com/v1`). Use it as a `fallbacks` entry. It is a preset only: both its chat and model-list endpoints answer 401 without a key, but no key has been used, so no model list has been read and no answer seen. Its docs say it logs the full prompt and response of every request and are silent on training and retention, so a `private` call skips it unless you vouch for it. `scripts/live-check.mjs` takes `CENCORI_API_KEY` (and `CENCORI_MODEL`).
+
 ## 0.8.0
 
 - **A spend share for each caller.** `createSpendLimit({ perCaller: { dailyUsd, monthlyUsd } })` gives each caller (`caller` on the call; only a hash is stored) their own share of the pool, so one person cannot use it up for everyone. A call over its share fails with `kind: 'budget'` and `detail.scope: 'caller'` (`'app'` when the whole pool ran out); `explain()` words each. `spendCap` on a call lets a person lower their own share, never raise it. `spend.callerReport(caller)` says what they have used. A custom `SpendControl` can implement `refusal(id)` to report the scope.

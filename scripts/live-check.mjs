@@ -1,8 +1,8 @@
 // Calls each fallback provider once, live, through Lodestone, and prints what happened. Keys come from the
 // environment and are never printed. Run it with the keys you want to test:
-//   GROQ_API_KEY=... REQUESTY_API_KEY=... LLMAPI_API_KEY=... node scripts/live-check.mjs
+//   GROQ_API_KEY=... REQUESTY_API_KEY=... LLMAPI_API_KEY=... CENCORI_API_KEY=... node scripts/live-check.mjs
 // It makes one tiny request per key (a few tokens), so the cost is a fraction of a cent.
-import { createLodestone, groq, requesty, llmapi, cerebras, omniakey, explain } from '../dist/index.js';
+import { createLodestone, groq, requesty, llmapi, cerebras, omniakey, cencori, explain } from '../dist/index.js';
 
 const checks = [
   ['groq()', process.env.GROQ_API_KEY, groq, ['openai/gpt-oss-20b'], 'https://api.groq.com/openai/v1'],
@@ -11,6 +11,8 @@ const checks = [
   ['cerebras()', process.env.CEREBRAS_API_KEY, cerebras, ['llama-3.3-70b'], 'https://api.cerebras.ai/v1'],
   // OmniaKey's own docs example uses gpt-5.5; set OMNIAKEY_MODEL to a model your account can use.
   ['omniakey()', process.env.OMNIAKEY_API_KEY, omniakey, [process.env.OMNIAKEY_MODEL || 'gpt-5.5'], 'https://api.omniakey.com/v1'],
+  // Cencori's docs example uses gpt-4o; set CENCORI_MODEL to a model your account can use. Its docs say it logs every prompt, so this check sends only a fixed harmless one.
+  ['cencori()', process.env.CENCORI_API_KEY, cencori, [process.env.CENCORI_MODEL || 'gpt-4o'], 'https://api.cencori.com/v1'],
 ];
 const rows = [];
 for (const [name, key, preset, models, baseUrl] of checks) {
@@ -34,7 +36,7 @@ for (const [name, key, preset, models, baseUrl] of checks) {
   try {
     const status = (await fetch(`${baseUrl}/models`, { headers: { Authorization: `Bearer ${key}` }, signal: AbortSignal.timeout(10_000) })).status;
     const list = await preset().listModels(key);
-    if (list && name === 'omniakey()') console.log(`${name} chat models (first 60): ${list.slice(0, 60).map((m) => m.id).join(', ')}`);
+    if (list && (name === 'omniakey()' || name === 'cencori()')) console.log(`${name} chat models (first 60): ${list.slice(0, 60).map((m) => m.id).join(', ')}`);
     rows.push({ preset: name + ' list', result: list ? `read ${list.length} models` : 'not read', detail: `GET /models answered ${status}${status === 401 || status === 403 ? ': the service rejected this key' : ''}` });
   } catch (err) { rows.push({ preset: name + ' list', result: 'error', detail: String(err.message).slice(0, 120) }); }
 }

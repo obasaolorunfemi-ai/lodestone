@@ -355,11 +355,32 @@ class _Handler(BaseHTTPRequestHandler):
         pass
 
 
-class Presets(unittest.TestCase):
+class Presets(unittest.IsolatedAsyncioTestCase):
     def test_omniakey_names_itself_and_points_at_its_openai_compatible_endpoint(self):
         from lodestone import omniakey
         p = omniakey()
         self.assertEqual((p.name, p._base), ("omniakey", "https://api.omniakey.com/v1"))
+
+    def test_cencori_names_itself_and_points_at_its_openai_compatible_endpoint(self):
+        from lodestone import cencori
+        p = cencori()
+        self.assertEqual((p.name, p._base), ("cencori", "https://api.cencori.com/v1"))
+
+    async def test_a_private_call_skips_cencori_unless_the_app_vouches_for_it(self):
+        from lodestone import cencori
+        seen = []
+        c = cencori()
+        async def call(req):
+            seen.append(req.model)
+            return ProviderReply("ok")
+        c.call = call
+        down = Mock(lambda req: fail(503))
+        ai = make(down, fallbacks=[Fallback(c, "k", ["gpt-4o"])])
+        with self.assertRaises(LodestoneError):
+            await ai.complete("cv", private=True)
+        self.assertEqual(seen, [])
+        ai2 = make(down, fallbacks=[Fallback(c, "k", ["gpt-4o"], privacy="no-training")])
+        self.assertEqual((await ai2.complete("cv", private=True)).text, "ok")
 
 
 class RealHttp(unittest.IsolatedAsyncioTestCase):
