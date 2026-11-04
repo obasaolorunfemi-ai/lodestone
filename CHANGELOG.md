@@ -4,7 +4,8 @@ Versions before 1.0 may change between minor releases; each change that could br
 
 ## Unreleased
 
-- **`cencori()` preset** (TypeScript and Python) for [Cencori](https://cencori.com), a gateway to chat models from several labs with an OpenAI-compatible endpoint (`api.cencori.com/v1`). Use it as a `fallbacks` entry. It is a preset only: both its chat and model-list endpoints answer 401 without a key, but no key has been used, so no model list has been read and no answer seen. Its docs say it logs the full prompt and response of every request and are silent on training and retention, so a `private` call skips it unless you vouch for it. `scripts/live-check.mjs` takes `CENCORI_API_KEY` (and `CENCORI_MODEL`).
+- **`cencori()` preset** (TypeScript and Python) for [Cencori](https://cencori.com), a gateway to chat models from several labs with an OpenAI-compatible endpoint (`api.cencori.com/v1`). Use it as a `fallbacks` entry. It is a preset only: a key was accepted and its model list read on 4 Nov 2026 (95 entries, chat and image models mixed, ids only, so name your models), but the first chat call was refused with 403 `credit_balance_exhausted`, so no answer has been seen from it. Its docs say it logs the full prompt and response of every request and are silent on training and retention, so a `private` call skips it unless you vouch for it. `scripts/live-check.mjs` takes `CENCORI_API_KEY` (and `CENCORI_MODEL`).
+- **Fixed: a provider with no credit left is now reported as `kind: 'credit'`.** The kind existed, with a sentence for the person, but was never produced, so a provider's "credit exhausted" came out as `other` and the generic "something went wrong". It is now produced for a 402, and for a 403 whose own words are about credit, balance, quota or billing (Cencori and OmniaKey both answer 403); any other 403 is still `other`. Python: the same.
 
 ## 0.8.0
 

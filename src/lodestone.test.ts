@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { ProviderError } from './errors.js';
 import { LodestoneError } from './errors.js';
+import { explain } from './explain.js';
 import { createLodestone, type AttemptEvent } from './lodestone.js';
 import { mock } from './providers/mock.js';
 import { anthropic } from './providers/anthropic.js';
@@ -730,6 +731,26 @@ describe('a retired Anthropic model heals itself', () => {
     await ai.checkModels();
     await ai.complete({ prompt: 'hi' }).catch(() => {});
     expect(asked).toEqual([]);
+  });
+});
+
+describe('a provider with no credit left', () => {
+  const quota = (status: number, body: string) => () => { throw new ProviderError(status, body); };
+  const run = (status: number, body: string) => {
+    const gw = mock(quota(status, body));
+    return createLodestone({ openrouter: { apiKey: 'k', provider: mock(() => fail(503)), models }, fallbacks: [{ provider: gw, apiKey: 'g', models: ['gpt-4o'] }], timing: quick }).complete({ prompt: 'x' }).catch((e) => e);
+  };
+  it("is a 'credit' failure, whether the provider says 402 or a 403 about credit (Cencori, OmniaKey)", async () => {
+    expect(await run(402, '{"error":{"message":"payment required"}}')).toMatchObject({ kind: 'credit' });
+    expect(await run(403, '{"error":{"message":"Credit balance exhausted. Top up to continue.","code":"credit_balance_exhausted"}}')).toMatchObject({ kind: 'credit', detail: { status: 403 } });
+    expect(await run(403, '{"error":{"code":"insufficient_user_quota"}}')).toMatchObject({ kind: 'credit' });
+  });
+  it("leaves another 403 as it was: a refusal that is not about money is 'other'", async () => {
+    expect(await run(403, '{"error":{"message":"only available on agentic harnesses"}}')).toMatchObject({ kind: 'other' });
+  });
+  it('gives the person a sentence, not the generic one', async () => {
+    const err = await run(403, '{"error":{"message":"Credit balance exhausted"}}');
+    expect(explain(err)).toMatch(/no credit/i);
   });
 });
 

@@ -130,7 +130,8 @@ def try_parse_json(raw: str) -> Any:
 def _classify(failure: Optional[_Out], own_key: bool, auth_failed: bool, needs_credit: bool) -> LodestoneError:
     status = failure.status if failure else 0
     kind = ("bad_output" if failure and failure.unusable else "auth" if auth_failed or status == 401 else "rate_limit" if status == 429
-            else "withdrawn" if status == 404 else "unavailable" if status >= 500 else "other")
+            else "withdrawn" if status == 404 else "unavailable" if status >= 500
+            else "credit" if failure and (status == 402 or (status == 403 and re.search(r"credit|balance|quota|top.?up|billing", failure.body or "", re.I))) else "other")
     rl = read_rate_limit(failure.body) if status == 429 and failure else None
     return LodestoneError(kind, status=status, rate_limit=rl, own_key=own_key, needs_credit=needs_credit, provider_message=failure.message if failure else None)
 

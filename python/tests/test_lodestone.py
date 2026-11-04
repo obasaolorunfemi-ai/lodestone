@@ -604,3 +604,22 @@ class AnthropicHealing(unittest.IsolatedAsyncioTestCase):
             models = Anthropic().list_models("secret")
         self.assertEqual([(m["id"], m["lifecycle"]) for m in models], [("claude-sonnet-5-5", "active"), ("claude-sonnet-4-20250514", "retired")])
         self.assertIn("limit=1000", urls[0])
+
+
+class NoCreditLeft(unittest.IsolatedAsyncioTestCase):
+    async def _run(self, status, body):
+        def boom(req):
+            raise ProviderError(status, body)
+        ai = make(Mock(lambda req: fail(503)), fallbacks=[Fallback(Mock(boom), "g", ["gpt-4o"])])
+        with self.assertRaises(LodestoneError) as cm:
+            await ai.complete("x")
+        return cm.exception
+
+    async def test_a_402_or_a_403_about_credit_is_a_credit_failure(self):
+        self.assertEqual((await self._run(402, "payment required")).kind, "credit")
+        self.assertEqual((await self._run(403, '{"error":{"code":"credit_balance_exhausted"}}')).kind, "credit")
+        self.assertEqual((await self._run(403, '{"error":{"code":"insufficient_user_quota"}}')).kind, "credit")
+
+    async def test_another_403_stays_other_and_the_person_gets_a_credit_sentence(self):
+        self.assertEqual((await self._run(403, "only available on agentic harnesses")).kind, "other")
+        self.assertIn("no credit", explain(await self._run(403, "Credit balance exhausted")).lower())
