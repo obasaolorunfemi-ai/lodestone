@@ -204,7 +204,7 @@ Calling free-tier models from a small serverless tool is unreliable in specific,
 
 ## References
 
-**Note on the references.** Each reference with a DOI was retrieved from Crossref and checked against the cited title, authors, year and venue; arXiv preprints were checked against arXiv; RFCs were checked against the RFC Editor; web pages were checked to resolve or, where a site blocks automated requests, to be the publisher's page, at the time of writing.
+**Note on the references.** Each reference with a DOI was retrieved from Crossref and checked against the cited title, authors, year and venue; arXiv preprints were checked against arXiv; RFCs were checked against the RFC Editor; web pages were checked to resolve or, where a site blocks automated requests, to be the publisher's page, at the time of writing. The DOI-bearing references of this report and of its companion report on Assay (36 in all) were also run through Assay's own citation and retraction checks: 34 were verified, two returned `unavailable` because a source was throttling at the time, none failed, and none has a retraction notice in Crossref.
 
 - Beyer, B., Jones, C., Petoff, J., & Murphy, N. R. (Eds.). (2016). *Site reliability engineering: How Google runs production systems*. O'Reilly Media.
 - Brooker, M. (n.d.). Timeouts, retries, and backoff with jitter. *Amazon Builders' Library*. https://aws.amazon.com/builders-library/timeouts-retries-and-backoff-with-jitter/
