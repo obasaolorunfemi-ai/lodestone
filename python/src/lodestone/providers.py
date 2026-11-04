@@ -182,6 +182,11 @@ def omniakey() -> OpenAICompatible:
     return OpenAICompatible("omniakey", "https://api.omniakey.com/v1")
 
 
+def cencori() -> OpenAICompatible:
+    """Cencori, a gateway to several labs' chat models. Its docs say it logs every prompt and say nothing about training, so a private call skips it unless the Fallback vouches with privacy="no-training". Not yet called live."""
+    return OpenAICompatible("cencori", "https://api.cencori.com/v1")
+
+
 def cerebras() -> OpenAICompatible:
     return OpenAICompatible("cerebras", "https://api.cerebras.ai/v1")
 

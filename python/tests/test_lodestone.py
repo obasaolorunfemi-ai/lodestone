@@ -355,11 +355,32 @@ class _Handler(BaseHTTPRequestHandler):
         pass
 
 
-class Presets(unittest.TestCase):
+class Presets(unittest.IsolatedAsyncioTestCase):
     def test_omniakey_names_itself_and_points_at_its_openai_compatible_endpoint(self):
         from lodestone import omniakey
         p = omniakey()
         self.assertEqual((p.name, p._base), ("omniakey", "https://api.omniakey.com/v1"))
+
+    def test_cencori_names_itself_and_points_at_its_openai_compatible_endpoint(self):
+        from lodestone import cencori
+        p = cencori()
+        self.assertEqual((p.name, p._base), ("cencori", "https://api.cencori.com/v1"))
+
+    async def test_a_private_call_skips_cencori_unless_the_app_vouches_for_it(self):
+        from lodestone import cencori
+        seen = []
+        c = cencori()
+        async def call(req):
+            seen.append(req.model)
+            return ProviderReply("ok")
+        c.call = call
+        down = Mock(lambda req: fail(503))
+        ai = make(down, fallbacks=[Fallback(c, "k", ["gpt-4o"])])
+        with self.assertRaises(LodestoneError):
+            await ai.complete("cv", private=True)
+        self.assertEqual(seen, [])
+        ai2 = make(down, fallbacks=[Fallback(c, "k", ["gpt-4o"], privacy="no-training")])
+        self.assertEqual((await ai2.complete("cv", private=True)).text, "ok")
 
 
 class RealHttp(unittest.IsolatedAsyncioTestCase):
@@ -583,3 +604,22 @@ class AnthropicHealing(unittest.IsolatedAsyncioTestCase):
             models = Anthropic().list_models("secret")
         self.assertEqual([(m["id"], m["lifecycle"]) for m in models], [("claude-sonnet-5-5", "active"), ("claude-sonnet-4-20250514", "retired")])
         self.assertIn("limit=1000", urls[0])
+
+
+class NoCreditLeft(unittest.IsolatedAsyncioTestCase):
+    async def _run(self, status, body):
+        def boom(req):
+            raise ProviderError(status, body)
+        ai = make(Mock(lambda req: fail(503)), fallbacks=[Fallback(Mock(boom), "g", ["gpt-4o"])])
+        with self.assertRaises(LodestoneError) as cm:
+            await ai.complete("x")
+        return cm.exception
+
+    async def test_a_402_or_a_403_about_credit_is_a_credit_failure(self):
+        self.assertEqual((await self._run(402, "payment required")).kind, "credit")
+        self.assertEqual((await self._run(403, '{"error":{"code":"credit_balance_exhausted"}}')).kind, "credit")
+        self.assertEqual((await self._run(403, '{"error":{"code":"insufficient_user_quota"}}')).kind, "credit")
+
+    async def test_another_403_stays_other_and_the_person_gets_a_credit_sentence(self):
+        self.assertEqual((await self._run(403, "only available on agentic harnesses")).kind, "other")
+        self.assertIn("no credit", explain(await self._run(403, "Credit balance exhausted")).lower())

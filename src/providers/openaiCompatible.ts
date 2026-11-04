@@ -107,6 +107,22 @@ export const normalizeGroq = (r: Record<string, unknown>): CatalogModel | null =
   return { id: r.id, ...(num(r.context_window) !== undefined ? { context_length: num(r.context_window) } : {}) };
 };
 
+/** Cencori's list (read live 4 Nov 2026) says for each model its `type` (chat, image...), whether it is `available` now, its `context_window` and, when priced, `pricing.input_per_million` and `output_per_million` in US dollars. Only available chat models are kept: an image model, or one marked unavailable (the image models said `pricing_required`), is left out, so a named model that has gone from the list is reported as withdrawn. It says nothing about training or retention, so nothing is claimed about either. */
+export const normalizeCencori = (r: Record<string, unknown>): CatalogModel | null => {
+  if (typeof r.id !== 'string' || !r.id) return null;
+  const types = Array.isArray(r.types) ? r.types : [];
+  if ((typeof r.type === 'string' && r.type !== 'chat') || (typeof r.type !== 'string' && types.length && !types.includes('chat'))) return null;
+  if (r.available === false || (typeof r.status === 'string' && r.status !== 'active')) return null;
+  const p = r.pricing && typeof r.pricing === 'object' ? (r.pricing as Record<string, unknown>) : {};
+  const inPrice = num(p.input_per_million); const outPrice = num(p.output_per_million);
+  return {
+    id: r.id,
+    ...(num(r.context_window) ? { context_length: num(r.context_window) } : {}),
+    ...(typeof r.owned_by === 'string' && r.owned_by ? { publisher: r.owned_by.toLowerCase() } : {}),
+    ...(inPrice !== undefined && outPrice !== undefined ? { pricing: { prompt: inPrice / 1e6, completion: outPrice / 1e6 }, free: inPrice === 0 && outPrice === 0 } : {}),
+  };
+};
+
 export interface PresetOptions { fetch?: typeof fetch; headers?: Record<string, string>; reasoning?: OpenAICompatibleOptions['reasoning'] }
 
 /** https://www.requesty.ai: a gateway to 800+ models, with failover between providers. `region: 'eu'` keeps prompts in the EU. */
@@ -118,6 +134,8 @@ export const llmapi = (o: PresetOptions = {}) => openaiCompatible({ name: 'llmap
 export const groq = (o: PresetOptions = {}) => openaiCompatible({ name: 'groq', baseUrl: 'https://api.groq.com/openai/v1', normalize: normalizeGroq, ...o });
 /** https://omniakey.com: a prepaid gateway to text, image, video and music models, with an OpenAI-compatible text endpoint (api.omniakey.com/v1). Its model list needs a key (401 without one), and its site says it does not switch a request to a different model by itself, which is what Lodestone does on top of it. Not yet called live. */
 export const omniakey = (o: PresetOptions = {}) => openaiCompatible({ name: 'omniakey', baseUrl: 'https://api.omniakey.com/v1', ...o });
+/** https://cencori.com: a gateway to chat models from OpenAI, Anthropic, Google, xAI, Mistral, DeepSeek and Meta, with an OpenAI-compatible endpoint (api.cencori.com/v1, `Authorization: Bearer`). Its docs say it logs the full prompt and response of every request and do not say whether prompts are trained on or how long they are kept, so a call marked `private` skips it unless you vouch for it with `privacy: 'no-training'`. The model list needs a key (401 without one), is read live, and carries each model's type, availability, context and price. Not yet called for chat: the account's first call was refused for credit. */
+export const cencori = (o: PresetOptions = {}) => openaiCompatible({ name: 'cencori', baseUrl: 'https://api.cencori.com/v1', normalize: normalizeCencori, ...o });
 /** https://cerebras.ai: fast inference with a free tier. */
 export const cerebras = (o: PresetOptions = {}) => openaiCompatible({ name: 'cerebras', baseUrl: 'https://api.cerebras.ai/v1', ...o });
 export const openai = (o: PresetOptions = {}) => openaiCompatible({ name: 'openai', baseUrl: 'https://api.openai.com/v1', ...o });

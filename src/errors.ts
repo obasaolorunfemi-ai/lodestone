@@ -28,7 +28,7 @@ export type FailureKind =
   | 'rate_limit'
   /** Every attempt timed out. */
   | 'slow'
-  /** The account has no credit for the paid fallback. */
+  /** A provider says its account has no credit left (402, or a 403 about credit, balance or quota). The app's owner has to top it up. */
   | 'credit'
   /** Models the provider no longer has (404). */
   | 'withdrawn'

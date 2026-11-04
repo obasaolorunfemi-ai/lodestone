@@ -522,6 +522,8 @@ export function createLodestone(config: LodestoneConfig = {}) {
   }
 
   /** Turns the failure that explains why nothing answered into a LodestoneError. */
+  /** The provider says the account has no money left: 402, or a 403 whose own words are about credit, balance or quota (Cencori, OmniaKey and others answer 403). Nothing the person can fix; the app's owner needs to top up. */
+  const outOfCredit = (f: Extract<Outcome, { kind: 'fail' }> | null): boolean => f !== null && (f.status === 402 || (f.status === 403 && /credit|balance|quota|top.?up|billing/i.test(f.body)));
   function classify(failure: Extract<Outcome, { kind: 'fail' }> | null, ownKey: boolean, authFailed: boolean, needsCredit: boolean): LodestoneError {
     const status = failure?.status ?? 0;
     const kind: FailureKind =
@@ -530,6 +532,7 @@ export function createLodestone(config: LodestoneConfig = {}) {
       : status === 429 ? 'rate_limit'
       : status === 404 ? 'withdrawn'
       : status >= 500 ? 'unavailable'
+      : outOfCredit(failure) ? 'credit'
       : 'other';
     const rateLimit: RateLimitReading | undefined = status === 429 && failure ? readRateLimit(failure.body) : undefined;
     return new LodestoneError(kind, { status, rateLimit, ownKey, needsCredit, providerMessage: failure?.message });
