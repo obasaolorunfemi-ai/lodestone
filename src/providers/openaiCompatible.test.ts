@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { cencori, cerebras, omniakey, groq, llmapi, mistral, normalizeGroq, normalizeLlmapi, normalizeRequesty, ollama, openai, openaiCompatible, requesty, together } from './openaiCompatible.js';
+import { cencori, normalizeCencori, cerebras, omniakey, groq, llmapi, mistral, normalizeGroq, normalizeLlmapi, normalizeRequesty, ollama, openai, openaiCompatible, requesty, together } from './openaiCompatible.js';
 import { ProviderError } from '../errors.js';
 
 const base = { model: 'm', apiKey: 'secret', maxTokens: 100, signal: new AbortController().signal };
@@ -105,5 +105,28 @@ describe('normalizeGroq', () => {
     const ids = ['openai/gpt-oss-20b', 'qwen/qwen3.8-27b', 'allam-2-7b', 'whisper-large-v3', 'canopylabs/orpheus-v1-english', 'meta-llama/llama-prompt-guard-2-22m', 'openai/gpt-oss-safeguard-20b'];
     expect(ids.map((id) => normalizeGroq({ id })?.id ?? null)).toEqual(['openai/gpt-oss-20b', 'qwen/qwen3.8-27b', 'allam-2-7b', null, null, null, null]);
     expect(normalizeGroq({ id: 'x', active: false })).toBeNull();
+  });
+});
+
+describe('cencori model list', () => {
+  const chat = { id: 'gpt-6-astra', object: 'model', owned_by: 'openai', type: 'chat', types: ['chat', 'reasoning', 'code'], context_window: 1050000, status: 'active', available: true, pricing_status: 'priced', pricing: { input_per_million: 10, output_per_million: 50, currency: 'USD' } };
+  const image = { id: 'gpt-image-2', owned_by: 'openai', type: 'image', types: ['image'], context_window: 0, status: 'active', available: false, unavailable_reason: 'pricing_required', pricing_status: 'unpriced' };
+
+  it('keeps an available chat model with its price per token, context and lab', () => {
+    expect(normalizeCencori(chat)).toEqual({ id: 'gpt-6-astra', context_length: 1050000, publisher: 'openai', pricing: { prompt: 10 / 1e6, completion: 50 / 1e6 }, free: false });
+  });
+  it('leaves out an image model, an unavailable model, and a retired one', () => {
+    expect(normalizeCencori(image)).toBeNull();
+    expect(normalizeCencori({ ...chat, available: false })).toBeNull();
+    expect(normalizeCencori({ ...chat, status: 'deprecated' })).toBeNull();
+    expect(normalizeCencori({ nope: 1 })).toBeNull();
+  });
+  it('gives no price for a model it has not priced, and marks a zero price free', () => {
+    expect(normalizeCencori({ ...chat, pricing: undefined, pricing_status: 'unpriced' })).not.toHaveProperty('pricing');
+    expect(normalizeCencori({ ...chat, pricing: { input_per_million: 0, output_per_million: 0 } })).toMatchObject({ free: true });
+  });
+  it('is what the preset reads the list with', async () => {
+    const { f } = capture({ data: [chat, image] });
+    expect((await cencori({ fetch: f }).listModels!('k'))?.map((m) => m.id)).toEqual(['gpt-6-astra']);
   });
 });
