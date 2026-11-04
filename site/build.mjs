@@ -327,7 +327,7 @@ const SEO_TITLE = {
   'runs-on-lodestone': 'Tools that run on Lodestone: KeyStone, TouchStone, Inkstone, Fieldstone, Whetstone',
   'code-map': 'Lodestone code map: where each piece lives',
 };
-const page = ({ path, title, desc, body, crumbs = true, crumb = '<a href="/docs/">Docs</a>', wide = false, scripts = '', side = '', stacked = false }) => `<!doctype html>
+const page = ({ path, title, desc, body, crumbs = true, crumb = '<a href="/docs/">Docs</a>', cls = '', wide = false, scripts = '', side = '', stacked = false }) => `<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>${esc(SEO_TITLE[path] ?? `${title} · Lodestone`)}</title>
 <meta name="description" content="${esc(desc)}">
@@ -337,7 +337,7 @@ const page = ({ path, title, desc, body, crumbs = true, crumb = '<a href="/docs/
 ${css1}${scripts}</head>
 <body><a class="skip" href="#main">Skip to content</a>
 <header class="sitebar">${siteBar(path)}</header>
-<main id="main" class="doc${wide ? ' wide' : ''}${stacked ? ' stacked' : ''}${side ? ' docs' : ''}">${side ? `<aside class="docs-side">${side}</aside><div class="docs-body">` : ''}${crumbs ? `<p class="crumbs tag">${crumb}</p>` : ''}
+<main id="main" class="doc${cls ? ' ' + cls : ''}${wide ? ' wide' : ''}${stacked ? ' stacked' : ''}${side ? ' docs' : ''}">${side ? `<aside class="docs-side">${side}</aside><div class="docs-body">` : ''}${crumbs ? `<p class="crumbs tag">${crumb}</p>` : ''}
 ${body}${side ? '</div>' : ''}
 </main>
 ${footHtml(false)}
@@ -366,13 +366,16 @@ for (const d of DOCS) {
   const authors = src.match(/^\*\*Authors:\*\* (.*)$/m)[1].split(';').map((a) => a.trim());
   const affil = src.match(/^\*\*Affiliation:\*\* (.*)$/m)[1];
   const desc = `Technical report by ${authors.join(' and ')} (${affil}): how Lodestone keeps AI calls working on unreliable free models inside a serverless time limit, with its security analysis, evaluation and limits.`;
-  const body = md(src, file);
+  const status = src.match(/^\*(.*)\*$/m)[1];
+  const [main, refs] = src.replace(/^# .*$/m, '').replace(/^\*\*(Authors|Affiliation):\*\*.*$/mg, '').replace(/^\*.*\*$/m, '').split('\n## References\n');
+  const inline = (t) => md(t, file).replace(/^<p>|<\/p>$/g, '');
+  const body = `<h1>${esc(title)}</h1><p class="authors">${esc(authors.join('; '))}</p><p class="affil">${esc(affil)}</p><p class="lede">${inline(status)}</p>${md(main, file)}<section class="refs"><h2 id="references">References</h2>${md(refs, file)}</section>`;
   const heads = [...body.matchAll(/<h2 id="([^"]+)">(.*?)<\/h2>/g)].map(([, id, t]) => [id, t.replace(/<[^>]+>/g, '')]);
   const tocLinks = heads.map(([id, t]) => `<a href="#${id}">${t}</a>`).join('');
   const side = `<nav class="toc-d" aria-label="On this page"><span class="tag">On this page</span>${tocLinks}</nav><details class="toc-m"><summary>On this page</summary>${tocLinks}</details>`;
   const ld = ldJson({ '@context': 'https://schema.org', '@type': 'ScholarlyArticle', headline: title, author: authors.map((name) => ({ '@type': 'Person', name, affiliation: { '@type': 'Organization', name: affil } })), datePublished: '2026-11', inLanguage: 'en', license: 'https://opensource.org/license/mit', url: `${SITE}/paper/`, about: 'Lodestone', isPartOf: { '@id': `${SITE}/#site` } });
   mkdirSync(join(out, 'paper'), { recursive: true });
-  writeFileSync(join(out, 'paper/index.html'), page({ path: 'paper', title: 'Technical paper', desc, body, side, crumb: 'Technical paper', scripts: ld }));
+  writeFileSync(join(out, 'paper/index.html'), page({ path: 'paper', title: 'Technical paper', desc, body, side, crumb: 'Technical paper', cls: 'paper', scripts: ld }));
   pages.push({ loc: '/paper/', lastmod: lastmod(file) });
 }
 mkdirSync(join(out, 'docs'), { recursive: true });

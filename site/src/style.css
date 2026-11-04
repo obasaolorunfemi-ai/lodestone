@@ -695,3 +695,22 @@ button, select, input, textarea { font-family: inherit; }
   .runs-table td::before { content: attr(data-label); display: block; font-size: .78rem; font-weight: 600; color: var(--ink-3); margin-bottom: 2px; }
   .runs-table td:nth-of-type(1), .runs-table td.live { min-width: 0; }
 }
+
+/* ---- the technical paper: one family (the serif) and one scale for the whole report, as on the Assay paper ---- */
+.paper .authors { font: 500 clamp(1.1rem, 1.02rem + .4vw, 1.35rem)/1.35 var(--f-display); color: var(--ink); margin: .2rem 0 0; }
+.paper .affil { font: italic 400 clamp(1rem, .96rem + .2vw, 1.15rem)/1.4 var(--f-display); color: var(--ink-2); margin: 0; }
+.paper .lede { font: italic 400 clamp(1.05rem, 1rem + .3vw, 1.25rem)/1.5 var(--f-display); color: var(--ink-2); margin: .4rem 0 .8rem; }
+.paper p, .paper li, .paper td, .paper th, .paper blockquote { font-family: var(--f-display); }
+.paper p, .paper li { font-size: clamp(1.1rem, 1.06rem + .25vw, 1.25rem); line-height: 1.62; color: var(--ink); }
+.paper td, .paper th { font-size: clamp(.95rem, .92rem + .2vw, 1.05rem); font-weight: 400; line-height: 1.45; color: var(--ink); }
+.paper th { font-weight: 600; background: var(--panel); }
+.paper td:first-child { font-weight: 600; }
+.paper code { font-family: var(--f-display); font-style: italic; font-size: 1em; background: var(--panel); padding: .02em .28em; }
+.paper pre code { font-style: normal; background: none; padding: 0; }
+.paper h2 { font-size: clamp(1.55rem, 1.3rem + 1vw, 2.1rem); }
+.paper h3 { font-size: clamp(1.2rem, 1.1rem + .4vw, 1.45rem); font-style: italic; font-weight: 500; }
+.paper strong { font-weight: 650; }
+.paper .refs ul { list-style: none; padding-left: 0; gap: 0; }
+.paper .refs li { font-size: clamp(.98rem, .95rem + .2vw, 1.08rem); line-height: 1.5; padding-left: 2rem; text-indent: -2rem; margin-bottom: .7rem; overflow-wrap: anywhere; }
+.paper .refs h3 { font-style: normal; margin-top: 1.8rem; }
+.paper a { overflow-wrap: anywhere; }
