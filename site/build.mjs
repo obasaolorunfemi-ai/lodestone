@@ -44,6 +44,7 @@ const PAGES = {
   providers: ['/providers/', 'Providers', 'How far each was checked'],
   runs: ['/where-it-runs/', 'Where it runs', 'Netlify, Workers, Base44, Vercel, Render'],
   runson: ['/runs-on-lodestone/', 'Runs on Lodestone', 'The tools that use it'],
+  paper: ['/paper/', 'Technical paper', 'Design, security, evaluation, limits'],
   docs: ['/docs/', 'Docs', 'Stores, budgets, runtimes'],
   python: ['/docs/python/', 'Python port', 'Alpha, and what it lacks'],
   map: ['/code-map/', 'Code map', 'Where each piece lives'],
@@ -55,13 +56,13 @@ const PAGES = {
 const MENU_GROUPS = [
   ['Start here', ['home', 'using']],
   ['How it works', ['lists', 'smarter', 'fails', 'limits']],
-  ['Proof', ['providers', 'runs', 'runson']],
+  ['Proof', ['providers', 'runs', 'runson', 'paper']],
   ['Reference', ['docs', 'map', 'changelog', 'security']],
   ['Project', ['github', 'npm']],
 ];
 const FOOT_GROUPS = [
   ['Learn', ['using', 'lists', 'smarter', 'fails', 'limits']],
-  ['Proof', ['providers', 'runs', 'runson']],
+  ['Proof', ['providers', 'runs', 'runson', 'paper']],
   ['Reference', ['docs', 'python', 'map', 'changelog', 'security']],
   ['Project', ['github', 'npm']],
 ];
@@ -313,6 +314,7 @@ const SEO_TITLE = {
   'docs/runtimes': 'Lodestone runtimes: Node, Workers, Deno and Bun',
   'docs/python': 'Lodestone for Python: AI failover port (alpha)',
   'docs/scorecards': 'Scorecards: pick AI models by measured quality · Lodestone',
+  paper: 'Lodestone technical paper: AI calls on unreliable free models',
   security: 'Lodestone security: reporting and supply chain',
   changelog: 'Lodestone changelog: every version and breaking change',
   providers: 'AI providers Lodestone supports, and how far each was checked',
@@ -325,7 +327,7 @@ const SEO_TITLE = {
   'runs-on-lodestone': 'Tools that run on Lodestone: KeyStone, TouchStone, Inkstone, Fieldstone, Whetstone',
   'code-map': 'Lodestone code map: where each piece lives',
 };
-const page = ({ path, title, desc, body, crumbs = true, wide = false, scripts = '', side = '', stacked = false }) => `<!doctype html>
+const page = ({ path, title, desc, body, crumbs = true, crumb = '<a href="/docs/">Docs</a>', wide = false, scripts = '', side = '', stacked = false }) => `<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>${esc(SEO_TITLE[path] ?? `${title} · Lodestone`)}</title>
 <meta name="description" content="${esc(desc)}">
@@ -335,7 +337,7 @@ const page = ({ path, title, desc, body, crumbs = true, wide = false, scripts = 
 ${css1}${scripts}</head>
 <body><a class="skip" href="#main">Skip to content</a>
 <header class="sitebar">${siteBar(path)}</header>
-<main id="main" class="doc${wide ? ' wide' : ''}${stacked ? ' stacked' : ''}${side ? ' docs' : ''}">${side ? `<aside class="docs-side">${side}</aside><div class="docs-body">` : ''}${crumbs ? '<p class="crumbs tag"><a href="/docs/">Docs</a></p>' : ''}
+<main id="main" class="doc${wide ? ' wide' : ''}${stacked ? ' stacked' : ''}${side ? ' docs' : ''}">${side ? `<aside class="docs-side">${side}</aside><div class="docs-body">` : ''}${crumbs ? `<p class="crumbs tag">${crumb}</p>` : ''}
 ${body}${side ? '</div>' : ''}
 </main>
 ${footHtml(false)}
@@ -355,6 +357,23 @@ for (const d of DOCS) {
   const side = docsNav + (heads.length ? `<nav class="toc-d" aria-label="On this page"><span class="tag">On this page</span>${tocLinks}</nav><details class="toc-m"><summary>On this page</summary>${tocLinks}</details>` : '');
   writeFileSync(join(dest, 'index.html'), page({ path: d.path, title: d.title, desc: d.desc, body, side }));
   pages.push({ loc: `/${d.path}/`, lastmod: lastmod(d.file) });
+}
+// The technical paper: its own page, not a doc, so it has no Docs sidebar. Authors, affiliation and date are read from the paper itself.
+{
+  const file = 'docs/technical-paper.md';
+  const src = readFileSync(join(root, file), 'utf8').replace(/\r/g, '');
+  const title = src.match(/^# (.*)$/m)[1];
+  const authors = src.match(/^\*\*Authors:\*\* (.*)$/m)[1].split(';').map((a) => a.trim());
+  const affil = src.match(/^\*\*Affiliation:\*\* (.*)$/m)[1];
+  const desc = `Technical report by ${authors.join(' and ')} (${affil}): how Lodestone keeps AI calls working on unreliable free models inside a serverless time limit, with its security analysis, evaluation and limits.`;
+  const body = md(src, file);
+  const heads = [...body.matchAll(/<h2 id="([^"]+)">(.*?)<\/h2>/g)].map(([, id, t]) => [id, t.replace(/<[^>]+>/g, '')]);
+  const tocLinks = heads.map(([id, t]) => `<a href="#${id}">${t}</a>`).join('');
+  const side = `<nav class="toc-d" aria-label="On this page"><span class="tag">On this page</span>${tocLinks}</nav><details class="toc-m"><summary>On this page</summary>${tocLinks}</details>`;
+  const ld = ldJson({ '@context': 'https://schema.org', '@type': 'ScholarlyArticle', headline: title, author: authors.map((name) => ({ '@type': 'Person', name, affiliation: { '@type': 'Organization', name: affil } })), datePublished: '2026-11', inLanguage: 'en', license: 'https://opensource.org/license/mit', url: `${SITE}/paper/`, about: 'Lodestone', isPartOf: { '@id': `${SITE}/#site` } });
+  mkdirSync(join(out, 'paper'), { recursive: true });
+  writeFileSync(join(out, 'paper/index.html'), page({ path: 'paper', title: 'Technical paper', desc, body, side, crumb: 'Technical paper', scripts: ld }));
+  pages.push({ loc: '/paper/', lastmod: lastmod(file) });
 }
 mkdirSync(join(out, 'docs'), { recursive: true });
 const docCard = (href, title, desc, ext = false) => `<li><a href="${href}"${ext ? ' rel="noopener"' : ''}><b>${esc(title)}</b><span>${esc(desc)}</span><i class="go">${ext ? 'Open on GitHub' : 'Read'} <u aria-hidden="true">→</u></i></a></li>`;
@@ -525,6 +544,7 @@ ${DOCS.filter((d) => d.path.startsWith('docs/')).map((d) => `- [${d.title}](${SI
 
 ## Project
 
+- [Technical paper](${SITE}/paper/): design, security analysis, evaluation and limits, by Obasa Olorunfemi and Precious Olusegun
 - [Security](${SITE}/security/): reporting, supply chain, what is and is not checked
 - [Changelog](${SITE}/changelog/)
 - [Source](https://github.com/obasaolorunfemi-ai/lodestone)
@@ -534,6 +554,6 @@ ${DOCS.filter((d) => d.path.startsWith('docs/')).map((d) => `- [${d.title}](${SI
 
 - [Everything in one file](${SITE}/llms-full.txt)
 `);
-writeFileSync(join(out, 'llms-full.txt'), ['README.md', ...DOCS.map((d) => d.file)].map((f) => `<!-- ${f} -->\n${readFileSync(join(root, f), 'utf8')}`).join('\n\n---\n\n'));
+writeFileSync(join(out, 'llms-full.txt'), ['README.md', 'docs/technical-paper.md', ...DOCS.map((d) => d.file)].map((f) => `<!-- ${f} -->\n${readFileSync(join(root, f), 'utf8')}`).join('\n\n---\n\n'));
 writeFileSync(join(out, '404.html'), readFileSync(join(here, 'src/404.html'), 'utf8').replaceAll('{{v}}', v).replaceAll('{{sitebar}}', siteBar('404')).replaceAll('{{foot}}', footHtml(false)));
 console.log(`site/public: Lodestone ${pkg.version} @ ${commit}, ${kinds} failure kinds, ${pages.length} pages, ${files.length} source files, ${rows.length} trust rows`);
