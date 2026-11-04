@@ -4,7 +4,7 @@
 
 **Affiliation:** Extrafemi Research
 
-*Technical report, version 1.0 (draft for author review), November 2026. It describes Lodestone 0.8.1. Author contributions and funding are to be completed by the authors.*
+*Technical report, version 1.0, November 2026. It describes Lodestone 0.8.1. The project is funded by Extrafemi via Extrafemi Labs and Extrafemi Research.*
 
 ## Abstract
 
@@ -181,7 +181,15 @@ The library has 263 automated tests. The same smoke checks (failover, cutting of
 
 ### 6.5 Threats to validity
 
-*Sample size and representativeness.* The incident is one day, one posting and one CV, on one set of free models; it is an example of the problem, not a measurement of free-model reliability in general. *Selection.* We investigated because something failed, so the incident is a worst-ish case. *Measurement.* The header-timing error above shows how easily latency is mismeasured; we corrected it for the figures reported, but the earlier release notes record the discovery rather than rewriting history. *Authorship.* The authors built the library and chose what to measure. *Reproducibility.* Provider behaviour changes daily; the incident cannot be re-run, only repeated against whatever the providers do on the day, and the scripts that do so are published.
+*Sample size and representativeness.* The incident is one day, one posting and one CV, on one set of free models; it is an example of the problem, not a measurement of free-model reliability in general.
+
+*Selection.* We investigated because something failed, so the incident is a worst-ish case.
+
+*Measurement.* The header-timing error above shows how easily latency is mismeasured; we corrected it for the figures reported, but the earlier release notes record the discovery rather than rewriting history.
+
+*Authorship.* The authors built the library and chose what to measure.
+
+*Reproducibility.* Provider behaviour changes daily; the incident cannot be re-run, only repeated against whatever the providers do on the day, and the scripts that do so are published.
 
 ## 7 Limitations
 
@@ -210,7 +218,15 @@ Calling free-tier models from a small serverless tool is unreliable in specific,
 
 ## Declarations
 
-**Competing interests.** The software described is developed and maintained by the first author and is released under the MIT licence. **Funding.** None is stated for this draft; the authors should complete this section. **Data and code availability.** The source code, tests, documentation and change history are at https://github.com/obasaolorunfemi-ai/lodestone; the version described is 0.8.1. **Use of AI tools.** Parts of the software and of this draft were produced with the assistance of an AI model; every reference was verified against Crossref, arXiv, the RFC Editor or the publisher, as noted below. **Affiliation.** Both authors: Extrafemi Research. **Author contributions.** To be completed by the authors.
+**Competing interests.** The software described is developed and maintained by the first author and is released under the MIT licence.
+
+**Funding.** The project is funded by Extrafemi via Extrafemi Labs and Extrafemi Research.
+
+**Data and code availability.** The source code, tests, documentation and change history are at https://github.com/obasaolorunfemi-ai/lodestone; the version described is 0.8.1.
+
+**Use of AI tools.** Parts of the software and of this report were produced with the assistance of an AI model; every reference was verified against Crossref, arXiv, the RFC Editor or the publisher, as noted below.
+
+**Affiliation.** Both authors: Extrafemi Research.
 
 ## References
 
