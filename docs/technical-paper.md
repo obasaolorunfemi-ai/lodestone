@@ -25,7 +25,7 @@ The incident exposed several distinct failures that every tool had been solving 
 
 1. a hard-coded model id breaks without warning when the model is withdrawn;
 2. one slow model can use the whole time limit;
-3. "429" means at least four different things that need four different messages: a daily limit, a per-minute limit, a busy upstream provider, and a spent budget;
+3. "429" can mean a daily limit, a per-minute limit or a busy upstream provider, which need different messages;
 4. a model that is down is paid for again, in time, by every request;
 5. a public tool that reaches a paid model has an open wallet;
 6. the answer is not always the shape the caller needs.
@@ -48,7 +48,7 @@ Without memory, every request pays for the same dead models again. A circuit bre
 
 ### 2.4 Say what happened, in words
 
-Failures are typed (`auth`, `rate_limit`, `slow`, `credit`, `withdrawn`, `unavailable`, `bad_output`, `aborted`, `budget`, `throttled`, `not_configured`, `other`) and `explain(err, { product, settingsHint })` turns any of them into a message for a person. The four kinds of 429 are told apart because the right advice differs: wait a minute, come back tomorrow, try again shortly, or add your own key. A provider with no credit left was for a time reported as the generic "something went wrong"; version 0.8.1 fixed that, which is a reminder that error wording needs the same testing as success paths.
+Failures are typed (`auth`, `rate_limit`, `slow`, `credit`, `withdrawn`, `unavailable`, `bad_output`, `aborted`, `budget`, `throttled`, `not_configured`, `other`) and `explain(err, { product, settingsHint })` turns any of them into a message for a person. A 429 is read as daily, per-minute, upstream or unrecognised, because the right advice differs: come back tomorrow, wait a minute, or try again shortly. A provider with no credit left was for a time reported as the generic "something went wrong"; version 0.8.1 fixed that, which is a reminder that error wording needs the same testing as success paths.
 
 ### 2.5 The answer is untrusted input
 
