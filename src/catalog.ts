@@ -27,6 +27,8 @@ export interface CatalogModel {
   line?: string;
   /** When the model was released, as the provider says it. */
   created_at?: string;
+  /** The model's own version number, such as "3.8" (Google puts it in the id and publishes no release date). Among models of one line, the higher version is the newer. */
+  version?: string;
 }
 
 export const ROUTER = 'openrouter/free';

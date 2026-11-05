@@ -257,7 +257,7 @@ export function createLodestone(config: LodestoneConfig = {}) {
       const listed = await cat.load();
       if (strict && !vouched && !listed?.length) return []; // no list, so nothing to check the models against
       const p = strict && !vouched ? { ...policy, requireNoTraining: true } : policy;
-      return resolveProviderModels(fb.models, listed, { tier, policy: p, strict: strict && !vouched, fill: fb.discover?.fill, max: fb.discover?.max, replaceRetired: fb.discover?.replaceRetired, now: now() });
+      return resolveProviderModels(fb.models, listed, { tier, policy: p, strict: strict && !vouched, fill: fb.discover?.fill, max: fb.discover?.max, replaceRetired: fb.discover?.replaceRetired, lineOf: fb.provider.lineOf, now: now() });
     } catch { return strict && !vouched ? [] : fb.models; }
   }
 
@@ -561,7 +561,7 @@ export function createLodestone(config: LodestoneConfig = {}) {
 
   /** What the daily check says about a provider's own list: swaps made and models that could not be swapped. */
   function healed(fb: FallbackConfig, listed: CatalogModel[]): { replaced?: { from: string; to: string; reason: string }[]; unreplaced?: { id: string; reason: string; note?: string }[] } {
-    const h = healProviderModels(fb.models, listed, { tier: 'strong', policy, replaceRetired: fb.discover?.replaceRetired, now: now() });
+    const h = healProviderModels(fb.models, listed, { tier: 'strong', policy, replaceRetired: fb.discover?.replaceRetired, lineOf: fb.provider.lineOf, now: now() });
     return { ...(h.replaced.length ? { replaced: h.replaced } : {}), ...(h.unreplaced.length ? { unreplaced: h.unreplaced } : {}) };
   }
 
