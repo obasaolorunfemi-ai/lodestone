@@ -42,6 +42,28 @@ describe('resolveProviderModels', () => {
   });
 });
 
+describe('healProviderModels: Google, which gives a version and no release date', () => {
+  const g = (id: string, line: string, version: string): CatalogModel => ({ id, line, version, publisher: 'google', architecture: { input_modalities: ['text', 'image'], output_modalities: ['text'] } });
+  const cat = [g('gemini-3.6-flash', 'flash', '3.6'), g('gemini-3.10-flash', 'flash', '3.10'), g('gemini-3.8-flash', 'flash', '3.8'), g('gemini-3.1-flash-lite', 'flash-lite', '3.1'), g('gemini-3.1-pro', 'pro', '3.1')];
+  const lineOf = (id: string) => /^gemini-[\d.]+-(flash-lite|flash|pro)$/.exec(id)?.[1];
+  it('swaps a model Google no longer lists, reading its line from its id, for the highest version of that line', () => {
+    const h = healProviderModels(['gemini-2.0-flash'], cat, { tier: 'strong', now: NOW, replaceRetired: true, lineOf });
+    expect(h.replaced).toEqual([{ from: 'gemini-2.0-flash', to: 'gemini-3.10-flash', reason: 'withdrawn' }]);
+    expect(h.models).toEqual(['gemini-3.10-flash']);
+  });
+  it('never crosses lines: a flash-lite is replaced by a flash-lite, not a flash', () => {
+    expect(healProviderModels(['gemini-2.0-flash-lite'], cat, { tier: 'strong', now: NOW, replaceRetired: true, lineOf }).replaced).toEqual([{ from: 'gemini-2.0-flash-lite', to: 'gemini-3.1-flash-lite', reason: 'withdrawn' }]);
+  });
+  it('does nothing without the opt-in, and guesses nothing for an id that names no line', () => {
+    expect(healProviderModels(['gemini-2.0-flash'], cat, { tier: 'strong', now: NOW, lineOf }).replaced).toEqual([]);
+    expect(healProviderModels(['gemini-flash-latest'], cat, { tier: 'strong', now: NOW, replaceRetired: true, lineOf }).unreplaced[0]).toMatchObject({ id: 'gemini-flash-latest' });
+  });
+  it('swaps a listed-then-retired model of a known line for the newest version, never crossing lines', () => {
+    const h = healProviderModels(['gemini-3.6-flash'], [{ ...g('gemini-3.6-flash', 'flash', '3.6'), lifecycle: 'retired' }, ...cat.slice(1)], { tier: 'strong', now: NOW, replaceRetired: true });
+    expect(h.replaced).toEqual([{ from: 'gemini-3.6-flash', to: 'gemini-3.10-flash', reason: 'retired' }]);
+  });
+});
+
 describe('healProviderModels: a gone model of a known line', () => {
   const claude = (id: string, line: string, created: string, o: Partial<CatalogModel> = {}): CatalogModel => ({ id, publisher: 'anthropic', line, created_at: created, lifecycle: 'active', architecture: { input_modalities: ['text', 'image'], output_modalities: ['text'] }, ...o });
   const cat = [

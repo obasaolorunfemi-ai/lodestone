@@ -5,6 +5,7 @@ import { explain } from './explain.js';
 import { createLodestone, type AttemptEvent } from './lodestone.js';
 import { mock } from './providers/mock.js';
 import { anthropic } from './providers/anthropic.js';
+import { google } from './providers/google.js';
 import { memoryStore } from './store.js';
 import type { CatalogModel } from './catalog.js';
 import type { ProviderRequest } from './types.js';
@@ -727,6 +728,41 @@ describe('a retired Anthropic model heals itself', () => {
     expect(asked).toEqual(['claude-sonnet-5-5']);
   });
   it('without it, the retired model is not asked for and nothing is swapped in', async () => {
+    const { ai, asked } = run(undefined);
+    await ai.checkModels();
+    await ai.complete({ prompt: 'hi' }).catch(() => {});
+    expect(asked).toEqual([]);
+  });
+});
+
+describe('a shut-down Gemini model heals itself', () => {
+  const NOW = Date.parse('2026-11-05T12:00:00Z');
+  const entry = (id: string) => ({ name: `models/${id}`, supportedGenerationMethods: ['generateContent'], inputTokenLimit: 1_000_000 });
+  /** Google's two endpoints on one fake fetch: the list no longer has gemini-2.0-flash, and asking for it is a 404. */
+  function api() {
+    const asked: string[] = [];
+    const f = (async (url: string) => {
+      if (url.includes('openrouter.ai')) return new Response(JSON.stringify({ data: [{ id: 'free-a:free', context_length: 100000 }] }));
+      if (/\/v1beta\/models\?/.test(url)) return new Response(JSON.stringify({ models: ['gemini-3.8-flash', 'gemini-3.6-flash', 'gemini-3.1-flash-lite', 'gemini-3.8-flash-tts'].map(entry) }));
+      const model = /models\/([^:]+):generateContent/.exec(url)![1];
+      asked.push(model);
+      return model === 'gemini-2.0-flash' ? new Response('models/gemini-2.0-flash is not found', { status: 404 }) : new Response(JSON.stringify({ candidates: [{ content: { parts: [{ text: 'hello' }] } }], usageMetadata: { promptTokenCount: 1, candidatesTokenCount: 1 } }));
+    }) as unknown as typeof fetch;
+    return { asked, f };
+  }
+  const run = (discover: { replaceRetired?: boolean } | undefined) => {
+    const { asked, f } = api();
+    const ai = createLodestone({ openrouter: { apiKey: 'k', provider: mock(() => fail(503)), models }, fallbacks: [{ provider: google({ fetch: f }), apiKey: 'g', models: ['gemini-2.0-flash'], discover }], fetch: f, now: () => NOW, timing: quick });
+    return { ai, asked };
+  };
+  it('with replaceRetired, a call goes to the newest flash model, and checkModels reports the swap', async () => {
+    const { ai, asked } = run({ replaceRetired: true });
+    const check = await ai.checkModels();
+    expect(check.providers?.google?.replaced).toEqual([{ from: 'gemini-2.0-flash', to: 'gemini-3.8-flash', reason: 'withdrawn' }]);
+    expect(await ai.complete({ prompt: 'hi' })).toMatchObject({ text: 'hello', provider: 'google', model: 'gemini-3.8-flash' });
+    expect(asked).toEqual(['gemini-3.8-flash']);
+  });
+  it('without it, the model that is no longer listed is dropped and nothing is swapped in', async () => {
     const { ai, asked } = run(undefined);
     await ai.checkModels();
     await ai.complete({ prompt: 'hi' }).catch(() => {});

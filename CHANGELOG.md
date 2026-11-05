@@ -2,6 +2,11 @@
 
 Versions before 1.0 may change between minor releases; each change that could break a caller is marked **breaking**.
 
+## Unreleased
+
+- **Google self-healing.** `google()` can now list Google's models (`listModels`), so a fallback on the Gemini API keeps its chain alive like OpenRouter's and Anthropic's. A model Google no longer lists is dropped, and with `discover: { replaceRetired: true }` it is swapped for the newest model of the same line: `flash`, `flash-lite` or `pro`, read from the id (`gemini-2.0-flash` is a `flash`) and ranked by version number, since Google publishes no release dates. It never crosses lines, never picks a preview, dated copy, speech, image, live or embedding model, and `checkModels()` reports every swap. Google's list says nothing about lifecycle, so a model Google still lists but has stopped serving is not noticed ahead of time: the call fails and the next fallback is tried. Providers can now give `lineOf(id)` for this; `CatalogModel` has an optional `version`. Not yet called against the real Google endpoint: the field names follow Google's models.list reference and the logic is tested on fake responses.
+- Why: `gemini-2.0-flash` was shut down on 1 June 2026, and a fallback that still named it failed on every call.
+
 ## 0.8.1
 
 - **`cencori()` preset** (TypeScript and Python) for [Cencori](https://cencori.com), a gateway to chat models from several labs with an OpenAI-compatible endpoint (`api.cencori.com/v1`). Use it as a `fallbacks` entry. It is a preset only: a key was accepted and its model list read on 4 Nov 2026 (95 entries: Lodestone keeps the available chat models, with price and context, and leaves out image and unavailable ones, so `discover: { fill }` works with it), but the first chat call was refused with 403 `credit_balance_exhausted`, so no answer has been seen from it. Its docs say it logs the full prompt and response of every request and are silent on training and retention, so a `private` call skips it unless you vouch for it. `scripts/live-check.mjs` takes `CENCORI_API_KEY` (and `CENCORI_MODEL`).

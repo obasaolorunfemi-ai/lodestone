@@ -42,6 +42,8 @@ export interface Provider {
   call(req: ProviderRequest): Promise<ProviderReply>;
   /** The models the provider offers right now, with price and what it does with prompts where it says. Lets Lodestone drop a model that has gone and find others. */
   listModels?(apiKey: string, signal?: AbortSignal): Promise<CatalogModel[] | null>;
+  /** The line a model id belongs to ("flash", "sonnet"), worked out from the id alone. Used for a model the provider no longer lists, whose line the list cannot tell, so `discover.replaceRetired` can still find its successor. */
+  lineOf?(id: string): string | undefined;
 }
 
 /** Where Lodestone keeps the model catalogue, which models are failing, saved answers and counters.

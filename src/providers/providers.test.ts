@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { ProviderError } from '../errors.js';
 import { anthropic, normalizeAnthropic } from './anthropic.js';
-import { google } from './google.js';
+import { google, normalizeGoogle } from './google.js';
 import { openrouter } from './openrouter.js';
 
 const png = 'data:image/png;base64,AAAA';
@@ -77,6 +77,36 @@ describe('google adapter', () => {
     expect(seen.body.system_instruction).toEqual({ parts: [{ text: 'sys' }] });
     expect(seen.body.contents.map((c: any) => c.role)).toEqual(['user', 'model']);
     expect(r).toEqual({ text: 'ab', usage: { inputTokens: 4, outputTokens: 1 } });
+  });
+});
+
+describe('google model list', () => {
+  const row = (name: string, o: Record<string, unknown> = {}) => ({ name: `models/${name}`, supportedGenerationMethods: ['generateContent', 'countTokens'], inputTokenLimit: 1_000_000, ...o });
+  it('turns an entry into a catalogue entry, with the line and version read from the id', () => {
+    expect(normalizeGoogle(row('gemini-3.8-flash'))).toEqual({ id: 'gemini-3.8-flash', publisher: 'google', architecture: { input_modalities: ['text', 'image'], output_modalities: ['text'] }, context_length: 1_000_000, line: 'flash', version: '3.8' });
+    expect(normalizeGoogle(row('gemini-3.1-flash-lite'))).toMatchObject({ line: 'flash-lite', version: '3.1' });
+    expect(normalizeGoogle(row('gemini-3.1-pro'))).toMatchObject({ line: 'pro', version: '3.1' });
+  });
+  it('lists a preview, a dated copy or an alias without a line, so nothing is swapped for them', () => {
+    for (const id of ['gemini-3.1-pro-preview', 'gemini-2.0-flash-001', 'gemini-flash-latest', 'gemini-3.1-flash-image']) expect(normalizeGoogle(row(id))).not.toHaveProperty('line');
+  });
+  it('drops what cannot generate text, and anything malformed', () => {
+    expect(normalizeGoogle(row('gemini-embedding-2', { supportedGenerationMethods: ['embedContent'] }))).toBeNull();
+    expect(normalizeGoogle({ name: 'models/x' })).toBeNull();
+    expect(normalizeGoogle('str')).toBeNull();
+  });
+  it('lists with the key in a header, follows pages, and gives none when the read fails', async () => {
+    const urls: string[] = []; const keys: string[] = [];
+    const f = (async (url: string, init: RequestInit) => {
+      urls.push(url); keys.push((init.headers as Record<string, string>)['x-goog-api-key']);
+      return new Response(JSON.stringify(urls.length === 1 ? { models: [row('gemini-3.6-flash')], nextPageToken: 'p2' } : { models: [row('gemini-3.8-flash')] }));
+    }) as unknown as typeof fetch;
+    const models = await google({ fetch: f }).listModels!('secret');
+    expect(models?.map((m) => m.id)).toEqual(['gemini-3.6-flash', 'gemini-3.8-flash']);
+    expect(keys).toEqual(['secret', 'secret']);
+    expect(urls[0]).not.toContain('secret');
+    expect(urls[1]).toContain('pageToken=p2');
+    expect(await google({ fetch: (async () => new Response('no', { status: 403 })) as unknown as typeof fetch }).listModels!('k')).toBeNull();
   });
 });
 

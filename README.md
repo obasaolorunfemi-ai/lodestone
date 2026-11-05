@@ -174,7 +174,7 @@ OpenRouter is the default, but one provider's outage should not stop your tool. 
 | `cencori()` | [Cencori](https://cencori.com) | A gateway to chat models from OpenAI, Anthropic, Google, xAI, Mistral, DeepSeek and Meta, with an OpenAI-compatible endpoint. Its docs say it logs the full prompt and response of every request and do not say whether prompts are trained on or kept, so a call marked `private` skips it unless you vouch for it with `privacy: 'no-training'`. Its model list needs a key and is read live (95 entries on 4 Nov 2026): Lodestone keeps the available chat models, with their price and context, so `discover: { fill }` works with it. Its rate limits were not found, and it is not marked `free`. Not yet called live: the account's first chat call was refused with 403, credit balance exhausted. |
 | `openai()`, `mistral()`, `together()` | the providers themselves | |
 | `ollama()` | a local server | Free and private. |
-| `anthropic()`, `google()` | direct | Not OpenAI-style, so they have their own adapters. `anthropic()` leaves the temperature out, because Anthropic's current models reject one (Claude 4.7 and later answer 400 to a non-default value, and API version 2026-10-21 removes it); pass `anthropic({ sendTemperature: true })` for an older model that still accepts one. Model ids are retired on a schedule (`claude-sonnet-4-20250514` was retired on 15 June 2026). `anthropic()` reads Anthropic's own model list, so a retired id is dropped from the chain and one with a retirement date within a week is left out; see [Anthropic self-healing](#anthropic-self-healing). Keep a second model or provider in the chain as well, so a retired id costs one attempt, not the call. |
+| `anthropic()`, `google()` | direct | Not OpenAI-style, so they have their own adapters. Both read the provider's model list ([Anthropic](#anthropic-self-healing), [Google](#google-self-healing)). `anthropic()` leaves the temperature out, because Anthropic's current models reject one (Claude 4.7 and later answer 400 to a non-default value, and API version 2026-10-21 removes it); pass `anthropic({ sendTemperature: true })` for an older model that still accepts one. Model ids are retired on a schedule (`claude-sonnet-4-20250514` was retired on 15 June 2026). `anthropic()` reads Anthropic's own model list, so a retired id is dropped from the chain and one with a retirement date within a week is left out; see [Anthropic self-healing](#anthropic-self-healing). Keep a second model or provider in the chain as well, so a retired id costs one attempt, not the call. |
 
 ```ts
 fallbacks: [
@@ -189,6 +189,14 @@ Model ids are each service's own. See [examples/multi-provider.ts](examples/mult
 
 - **Outdated or shut down.** The daily `checkModels()` saves each provider's current catalogue. A model the provider no longer lists is dropped; one with an expiry date within a week (OpenRouter publishes it) is left out; one that is failing right now is skipped by the circuit breaker. Nobody edits a list.
 - **New models.** `discover: { fill }` tops a short list up from the provider's own catalogue with models within a price limit ("free" is a limit of zero) from trusted labs. For OpenRouter's free models this happens by itself.
+
+#### Google self-healing
+
+```ts
+fallbacks: [{ provider: google(), apiKey: process.env.GOOGLE_API_KEY!, models: ['gemini-2.0-flash'], discover: { replaceRetired: true } }]
+```
+
+Google's list has no lifecycle field, so this works differently from Anthropic's. A model the list no longer has is dropped from the chain by default. With `discover: { replaceRetired: true }` it is swapped for the newest model of the **same line**, read from the id (`flash`, `flash-lite`, `pro`) and ranked by version number: `gemini-2.0-flash` is replaced by the highest `gemini-N-flash`. It never crosses lines, never picks a preview or dated copy, and every swap is reported by `checkModels()` under `providers.google`. A model Google still lists but no longer serves is not noticed in advance. The call fails, and the next fallback is tried. As with Anthropic, it is opt-in because a replacement can cost more or answer differently, and the spend limit has no price for it. What has been checked: the logic is tested on fake responses; no call to the real endpoint has been made.
 
 #### Anthropic self-healing
 

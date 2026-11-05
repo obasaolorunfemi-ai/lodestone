@@ -24,6 +24,8 @@ export interface ResolveOptions {
   max?: number;
   /** When a model the app named has gone (retired, no longer listed, or about to be), put the provider's newest current model of the same line in its place. Off by default: a replacement can cost more, answer differently, or need other settings, so it is something you switch on, and it is always reported (see healProviderModels). Needs a provider that publishes a `line` for its models (Anthropic does). */
   replaceRetired?: boolean;
+  /** The provider's way of reading a line from an id, for a named model it no longer lists. */
+  lineOf?: (id: string) => string | undefined;
   now: number;
 }
 
@@ -46,6 +48,13 @@ function gone(id: string, byId: Map<string, CatalogModel>, o: ResolveOptions): G
 }
 
 const released = (m: CatalogModel): number => { const t = Date.parse(m.created_at ?? ''); return Number.isFinite(t) ? t : 0; };
+/** Compares two dotted version numbers ("3.10" is newer than "3.8"); a model with no version sorts as oldest. */
+const versionOf = (m: CatalogModel): number[] => (m.version ?? '').split('.').map(Number).filter(Number.isFinite);
+const newerVersion = (a: CatalogModel, b: CatalogModel): number => {
+  const x = versionOf(a), y = versionOf(b);
+  for (let i = 0; i < Math.max(x.length, y.length); i++) { const d = (y[i] ?? 0) - (x[i] ?? 0); if (d !== 0) return d; }
+  return 0;
+};
 
 /** The list to use, and what was changed in it: a gone model is dropped, and with `replaceRetired` swapped
  *  for the newest model of the same line (never one the app already named, never a deprecated or retired
@@ -62,12 +71,12 @@ export function healProviderModels(curated: string[], catalog: CatalogModel[] | 
     if (why === undefined) { kept.push(id); continue; }
     if (why === 'refused') continue;
     if (!o.replaceRetired) continue;
-    const line = byId.get(id)?.line;
+    const line = byId.get(id)?.line ?? o.lineOf?.(id);
     if (!line) { unreplaced.push({ id, reason: why, note: byId.has(id) ? 'the provider names no line for it' : 'no longer listed, so its line is unknown' }); continue; }
     const to = catalog
       .filter((m) => m.line === line && (m.lifecycle === undefined || m.lifecycle === 'active') && !curated.includes(m.id) && !kept.includes(m.id) && !replaced.some((r) => r.to === m.id)
         && (o.tier !== 'vision' || takesImages(m)) && vet(m, o.policy, { discovered: true, strict: o.strict, now: o.now }).ok)
-      .sort((a, b) => released(b) - released(a) || a.id.localeCompare(b.id))[0];
+      .sort((a, b) => released(b) - released(a) || newerVersion(a, b) || a.id.localeCompare(b.id))[0];
     if (!to) { unreplaced.push({ id, reason: why, note: `no current ${line} model to take its place` }); continue; }
     kept.push(to.id);
     replaced.push({ from: id, to: to.id, reason: why });
