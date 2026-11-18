@@ -83,10 +83,10 @@ const logo = (file, name) => {
   return d.length ? `<svg class="logo" viewBox="0 0 24 24" role="img" aria-label="${name} logo" fill="currentColor">${d.map((x) => `<path d="${x}"/>`).join('')}</svg>` : '';
 };
 // The scroll of providers on the home page. A dot says how far each has been checked, the same as the Providers page.
-const STRIP = [['OpenRouter', 'live', 'openrouter'], ['Groq', 'live', 'groq'], ['Requesty', 'list', 'requesty'], ['OmniaKey', 'list', 'omniakey'], ['Cerebras', 'preset', 'cerebras'], ['OpenAI', 'preset', 'openai'], ['Mistral', 'preset', 'mistralai'], ['Together', 'preset', 'together'], ['Ollama', 'preset', 'ollama'], ['Anthropic', 'preset', 'anthropic'], ['Google', 'preset', 'google']];
+const STRIP = [['OpenRouter', 'live', 'openrouter'], ['Groq', 'live', 'groq'], ['Cencori', 'live', 'cencori'], ['Requesty', 'list', 'requesty'], ['OmniaKey', 'list', 'omniakey'], ['Cerebras', 'preset', 'cerebras'], ['OpenAI', 'preset', 'openai'], ['Mistral', 'preset', 'mistralai'], ['Together', 'preset', 'together'], ['Ollama', 'preset', 'ollama'], ['Anthropic', 'preset', 'anthropic'], ['Google', 'preset', 'google']];
 const STRIP_WORDS = { live: 'answered a live call', list: 'model list read', preset: 'preset, not yet called live' };
 // Providers with no mark in Simple Icons show their own mark, taken from their site, as an image (see site/src/logos/README.md).
-const BRAND_IMG = { groq: '/logos/groq.svg', requesty: '/logos/requesty.png', omniakey: '/logos/omniakey.svg', cerebras: '/logos/cerebras.png', together: '/logos/together.png', llmapi: '/logos/llmapi.svg', base44: '/logos/base44.png' };
+const BRAND_IMG = { groq: '/logos/groq.svg', requesty: '/logos/requesty.png', omniakey: '/logos/omniakey.svg', cerebras: '/logos/cerebras.png', cencori: '/logos/cencori.png', together: '/logos/together.png', llmapi: '/logos/llmapi.svg', base44: '/logos/base44.png' };
 const stripLogo = (l, n) => (BRAND_IMG[l] ? `<img class="logo logo-img" src="${BRAND_IMG[l]}" alt="" width="22" height="22">` : l ? logo(l, n) : '');
 const stripItems = STRIP.map(([n, k, l]) => `<li><i class="dot ${k}"></i>${stripLogo(l, n)}${n}</li>`).join('');
 // Models seen answering in our own live checks on 28 and 29 October 2026 (the Measured section and the checks since). More are added in the browser from KeyStone's live counts once they exist.
@@ -159,7 +159,7 @@ const vet = rows.map(([id, from, m]) => {
 }).join('');
 
 // 3. How far each provider preset has been checked. Edit this when that changes; it is a claim, so it is written by hand.
-const SVC_LOGO = { Groq: 'groq', Requesty: 'requesty', 'LLM API': 'llmapi', OmniaKey: 'omniakey', Cerebras: 'cerebras', OpenRouter: 'openrouter' };
+const SVC_LOGO = { Groq: 'groq', Requesty: 'requesty', 'LLM API': 'llmapi', OmniaKey: 'omniakey', Cencori: 'cencori', Cerebras: 'cerebras', OpenRouter: 'openrouter' };
 const providers = [
   ['groq()', 'Groq', 'ok', 'a chat call answered live on 28 Oct 2026 (openai/gpt-oss-20b, about 1 s); the model list was read, 11 entries of which 4 are chat models', 'the list also holds speech and safety models, which Lodestone now leaves out; the model Lodestone first listed, llama-3.3-70b-versatile, had been withdrawn (a 404, reported as withdrawn)'],
   ['requesty()', 'Requesty', 'warn', 'key accepted and the model list read live (807 chat models, with price, lab and data policy)', 'the chat call was refused with 402, payment required, because the account had no credit, so no answer has been seen from it'],
