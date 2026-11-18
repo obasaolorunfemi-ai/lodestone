@@ -2,6 +2,11 @@
 
 Versions before 1.0 may change between minor releases; each change that could break a caller is marked **breaking**.
 
+## Unreleased
+
+- **Fixed: a fallback provider's calls are counted at its own list's price.** Lodestone estimated a call's cost from OpenRouter's catalogue only, so a call on a fallback that does not report its cost (Cencori, Requesty and others) was counted at the flat hold ($0.01 by default), even when that provider's own model list has prices. A spend limit was therefore far stricter than needed for cheap calls (seen on 18 Nov 2026: one `gpt-4o-mini` call of 26 tokens counted as $0.01). It now uses the calling provider's own list when it has one; with no price, the hold still counts.
+- **`cencori()` has answered a live call** (18 Nov 2026: `gpt-4o-mini`, about 4 s), failover, a withdrawn model dropped by its live list, discovery with a price limit, and the `private` rule were all seen working.
+
 ## 0.9.0
 
 - **Google self-healing.** `google()` can now list Google's models (`listModels`), so a fallback on the Gemini API keeps its chain alive like OpenRouter's and Anthropic's. A model Google no longer lists is dropped, and with `discover: { replaceRetired: true }` it is swapped for the newest model of the same line: `flash`, `flash-lite` or `pro`, read from the id (`gemini-2.0-flash` is a `flash`) and ranked by version number, since Google publishes no release dates. It never crosses lines, never picks a preview, dated copy, speech, image, live or embedding model, and `checkModels()` reports every swap. Google's list says nothing about lifecycle, so a model Google still lists but has stopped serving is not noticed ahead of time: the call fails and the next fallback is tried. Providers can now give `lineOf(id)` for this; `CatalogModel` has an optional `version`. Not yet called against the real Google endpoint: the field names follow Google's models.list reference and the logic is tested on fake responses.

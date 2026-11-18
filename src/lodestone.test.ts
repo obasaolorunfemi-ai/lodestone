@@ -6,6 +6,7 @@ import { createLodestone, type AttemptEvent } from './lodestone.js';
 import { mock } from './providers/mock.js';
 import { anthropic } from './providers/anthropic.js';
 import { google } from './providers/google.js';
+import { createSpendLimit } from './spend.js';
 import { memoryStore } from './store.js';
 import type { CatalogModel } from './catalog.js';
 import type { ProviderRequest } from './types.js';
@@ -677,6 +678,22 @@ describe('other providers keep their lists alive', () => {
     await ai.refreshCatalog(); await ai.checkModels();
     await ai.complete({ prompt: 'x' });
     expect(['google/cheap-flash', 'anthropic/cheap-mini']).toContain(gw.calls[0].model);
+  });
+  it("counts a fallback call at the price in that provider's own list, not at the flat hold", async () => {
+    const gw = gateway([row('gpt-4o-mini', { pricing: { prompt: 1e-6, completion: 2e-6 } })], () => ({ text: 'from gateway', usage: { inputTokens: 1000, outputTokens: 500 } }) as never);
+    const spend = createSpendLimit({ store: memoryStore(), dailyUsd: 1, holdUsd: 0.01 });
+    const ai = createLodestone({ openrouter: { apiKey: 'k', provider: down(), models }, fallbacks: [{ provider: gw, apiKey: 'g', models: ['gpt-4o-mini'] }], spend, now: () => NOW, timing: quick });
+    await ai.checkModels().catch(() => {});
+    await ai.complete({ prompt: 'x' });
+    expect((await spend.report()).todayUsd).toBeCloseTo(1000 * 1e-6 + 500 * 2e-6, 8);   // $0.002, not $0.01
+  });
+  it('still counts the flat hold when the provider lists no price', async () => {
+    const gw = gateway([row('gpt-4o-mini', { pricing: undefined })], () => ({ text: 'from gateway', usage: { inputTokens: 1000, outputTokens: 500 } }) as never);
+    const spend = createSpendLimit({ store: memoryStore(), dailyUsd: 1, holdUsd: 0.01 });
+    const ai = createLodestone({ openrouter: { apiKey: 'k', provider: down(), models }, fallbacks: [{ provider: gw, apiKey: 'g', models: ['gpt-4o-mini'] }], spend, now: () => NOW, timing: quick });
+    await ai.checkModels().catch(() => {});
+    await ai.complete({ prompt: 'x' });
+    expect((await spend.report()).todayUsd).toBeCloseTo(0.01, 8);
   });
   it('reports, for every provider, what has gone and what is retiring', async () => {
     const gw = gateway([row('google/here-flash'), row('google/leaving-flash', { expiration_date: '2026-10-30' })]);

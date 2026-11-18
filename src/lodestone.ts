@@ -270,9 +270,11 @@ export function createLodestone(config: LodestoneConfig = {}) {
   }
 
   /** What a call cost, estimated from the model's catalogue price, for providers that do not report it. */
-  async function estimateCost(model: string, usage?: Usage): Promise<number | undefined> {
+  async function estimateCost(model: string, usage?: Usage, provider?: Provider): Promise<number | undefined> {
     if (!usage) return undefined;
-    const m = (await catalog.load().catch(() => null))?.find((x) => x.id === model);
+    // A fallback provider's own list has its own ids and prices (OpenRouter's would not know `gpt-4o-mini`); without one, OpenRouter's catalogue.
+    const own = provider ? [...fbCatalogs].find(([fb]) => fb.provider === provider)?.[1] : undefined;
+    const m = (await (own ?? catalog).load().catch(() => null))?.find((x) => x.id === model);
     const inP = Number(m?.pricing?.prompt);
     const outP = Number(m?.pricing?.completion);
     return Number.isFinite(inP) && Number.isFinite(outP) ? usage.inputTokens * inP + usage.outputTokens * outP : undefined;
@@ -404,7 +406,7 @@ export function createLodestone(config: LodestoneConfig = {}) {
     const finish = async (provider: Provider, model: string, reply: ProviderReply, phase?: 'paid' | 'fallback', free = false): Promise<CompleteResult> => {
       const result: CompleteResult = { text: reply.text, provider: provider.name, model, usage: reply.usage };
       if (phase && !free && config.spend && (!callerKey || (phase === 'paid' && opts.spendCap))) {
-        const costUsd = reply.usage?.costUsd ?? (await estimateCost(model, reply.usage));
+        const costUsd = reply.usage?.costUsd ?? (await estimateCost(model, reply.usage, provider));
         const hold = held as SpendInfo | null;
         const id = hold && hold.provider === provider.name && hold.model === model ? hold.id : crypto.randomUUID();
         held = null;
