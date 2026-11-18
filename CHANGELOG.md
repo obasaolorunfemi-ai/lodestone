@@ -2,7 +2,7 @@
 
 Versions before 1.0 may change between minor releases; each change that could break a caller is marked **breaking**.
 
-## Unreleased
+## 0.9.1
 
 - **Fixed: a fallback provider's calls are counted at its own list's price.** Lodestone estimated a call's cost from OpenRouter's catalogue only, so a call on a fallback that does not report its cost (Cencori, Requesty and others) was counted at the flat hold ($0.01 by default), even when that provider's own model list has prices. A spend limit was therefore far stricter than needed for cheap calls (seen on 18 Nov 2026: one `gpt-4o-mini` call of 26 tokens counted as $0.01). It now uses the calling provider's own list when it has one; with no price, the hold still counts.
 - **`cencori()` has answered a live call** (18 Nov 2026: `gpt-4o-mini`, about 4 s), failover, a withdrawn model dropped by its live list, discovery with a price limit, and the `private` rule were all seen working.
